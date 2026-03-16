@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spotify Karaoke</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="stage" id="stage">
+        <!-- Resize edge handles -->
+        <div class="resize-edge resize-n"  data-dir="n"></div>
+        <div class="resize-edge resize-s"  data-dir="s"></div>
+        <div class="resize-edge resize-e"  data-dir="e"></div>
+        <div class="resize-edge resize-w"  data-dir="w"></div>
+        <div class="resize-edge resize-ne" data-dir="ne"></div>
+        <div class="resize-edge resize-nw" data-dir="nw"></div>
+        <div class="resize-edge resize-se" data-dir="se"></div>
+        <div class="resize-edge resize-sw" data-dir="sw"></div>
+
+        <section class="player-card" id="playerCard" aria-label="Now playing">
+
+          <!-- Top bar: close dot · 9-dot drag grip · spacer -->
+          <div class="player-top" id="dragHandle">
+            <span class="dot"></span>
+            <svg class="grip" width="16" height="7" viewBox="0 0 27 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="0.300781" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect y="7.6001" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="7.90234" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="7.60156" y="7.80005" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="15.5039" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="15.2031" y="7.8999" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="23.1055" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+              <rect x="22.8047" y="7.94995" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
+            </svg>
+            <span class="spacer"></span>
+          </div>
+
+          <!-- Main content: album art OR karaoke lyrics -->
+          <div class="content-area" id="contentArea">
+
+            <!-- Album art panel -->
+            <div class="art-panel" id="artPanel">
+              <img src="" alt="" />
+            </div>
+
+            <!-- Karaoke lyrics panel -->
+            <div class="lyrics-panel" id="lyricsPanel">
+              <button class="exit-karaoke-btn" id="exitKaraokeBtn" aria-label="Exit Karaoke">
+                <svg width="20" height="19" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M16.7017 8.91082C17.7831 7.86791 17.8144 5.99625 16.5877 4.72385C15.3609 3.45146 13.4894 3.41441 12.4077 4.45704C11.7544 5.08683 11.4861 6.00043 11.6407 6.91972L9.89896 7.2121C9.65774 5.77653 10.0686 4.25919 11.182 3.18576C13.0483 1.38666 16.0374 1.60889 17.859 3.49817C19.6804 5.38745 19.7934 8.38273 17.9274 10.1821C16.8562 11.2148 15.3969 11.5834 14.0182 11.3479L14.3155 9.60711C15.1948 9.75735 16.0727 9.51725 16.7017 8.91082Z" fill="currentColor"/>
+                  <path d="M13.3912 8.48364C14.1824 9.36291 15.0749 10.5211 15.0848 10.5339L6.77826 18.0182L6.67141 18.1083C6.12372 18.5405 5.39563 18.6783 4.77185 18.3815L4.5839 18.29C4.1414 18.0665 3.6808 17.7844 3.37302 17.4652L4.67089 16.2138C4.79293 16.3404 5.09318 16.5387 5.52788 16.7486C5.53152 16.7471 5.53626 16.7468 5.54079 16.7445C5.55753 16.736 5.57743 16.7226 5.59787 16.7042L12.6347 10.3639C12.3361 10.0072 12.0256 9.65011 11.7622 9.37691C11.4986 9.10356 11.153 8.77998 10.8073 8.46841L4.21472 15.2696C4.19557 15.2893 4.18147 15.3087 4.17238 15.3252C4.16997 15.3295 4.16892 15.3339 4.16729 15.3374C4.36133 15.7798 4.5488 16.0872 4.67089 16.2138L3.37302 17.4652L3.24396 17.3196C2.991 17.012 2.771 16.6114 2.59343 16.2255L2.50835 16.0338C2.23455 15.3996 2.39882 14.677 2.85071 14.1455L2.94466 14.042L10.7273 6.01423C10.7344 6.02017 12.2089 7.24371 13.0596 8.12605L13.3912 8.48364Z" fill="currentColor"/>
+                </svg>
+                Exit Karaoke
+              </button>
+              <div class="lyrics" id="lyrics"></div>
+            </div>
+
+            <!-- Controls overlay — fades in on hover via CSS -->
+            <div class="controls-overlay" id="controlsOverlay">
+
+              <!-- Karaoke toggle pill (top centre) -->
+              <button class="karaoke-pill" id="karaokeToggle" aria-expanded="false">
+                <svg width="20" height="19" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M16.7017 8.91082C17.7831 7.86791 17.8144 5.99625 16.5877 4.72385C15.3609 3.45146 13.4894 3.41441 12.4077 4.45704C11.7544 5.08683 11.4861 6.00043 11.6407 6.91972L9.89896 7.2121C9.65774 5.77653 10.0686 4.25919 11.182 3.18576C13.0483 1.38666 16.0374 1.60889 17.859 3.49817C19.6804 5.38745 19.7934 8.38273 17.9274 10.1821C16.8562 11.2148 15.3969 11.5834 14.0182 11.3479L14.3155 9.60711C15.1948 9.75735 16.0727 9.51725 16.7017 8.91082Z" fill="currentColor"/>
+                  <path d="M13.3912 8.48364C14.1824 9.36291 15.0749 10.5211 15.0848 10.5339L6.77826 18.0182L6.67141 18.1083C6.12372 18.5405 5.39563 18.6783 4.77185 18.3815L4.5839 18.29C4.1414 18.0665 3.6808 17.7844 3.37302 17.4652L4.67089 16.2138C4.79293 16.3404 5.09318 16.5387 5.52788 16.7486C5.53152 16.7471 5.53626 16.7468 5.54079 16.7445C5.55753 16.736 5.57743 16.7226 5.59787 16.7042L12.6347 10.3639C12.3361 10.0072 12.0256 9.65011 11.7622 9.37691C11.4986 9.10356 11.153 8.77998 10.8073 8.46841L4.21472 15.2696C4.19557 15.2893 4.18147 15.3087 4.17238 15.3252C4.16997 15.3295 4.16892 15.3339 4.16729 15.3374C4.36133 15.7798 4.5488 16.0872 4.67089 16.2138L3.37302 17.4652L3.24396 17.3196C2.991 17.012 2.771 16.6114 2.59343 16.2255L2.50835 16.0338C2.23455 15.3996 2.39882 14.677 2.85071 14.1455L2.94466 14.042L10.7273 6.01423C10.7344 6.02017 12.2089 7.24371 13.0596 8.12605L13.3912 8.48364Z" fill="currentColor"/>
+                </svg>
+                <span id="karaokeLabel">Enter Karaoke</span>
+              </button>
+
+              <!-- Playback controls row -->
+              <div class="overlay-controls">
+                <!-- Volume -->
+                <div class="volume-wrap">
+                  <div class="volume-popup" id="volumePopup">
+                    <div class="vol-track" id="volTrack">
+                      <div class="vol-fill" id="volFill"></div>
+                      <div class="vol-preview" id="volPreview"></div>
+                      <div class="vol-thumb" id="volThumb"></div>
+                    </div>
+                  </div>
+                  <button class="ctrl-btn ctrl-btn--sm" id="volumeBtn" aria-label="Volume">
+                    <svg width="20" height="20" viewBox="0 26 24 24" fill="none" aria-hidden="true">
+                      <path d="M1.30078 38.0348H0.000781298V38.0348L1.30078 38.0348ZM11.8008 29.6344L12.5807 30.6744L12.5808 30.6744L11.8008 29.6344ZM14.2119 28.1031L13.6084 26.9517L13.6084 26.9517L14.2119 28.1031ZM14.2119 47.9664L13.6084 49.1179L13.6084 49.1179L14.2119 47.9664ZM11.8008 46.4352L12.5808 45.3952L12.5808 45.3952L11.8008 46.4352ZM1.30078 38.0348H2.60078C2.60078 36.2148 4.04079 34.8356 6.37006 33.6062C7.48801 33.0161 8.6742 32.5315 9.77419 32.0731C10.7952 31.6476 11.8952 31.1885 12.5807 30.6744L11.8008 29.6344L11.0208 28.5944C10.6563 28.8678 9.91872 29.1962 8.77412 29.6731C7.70847 30.1172 6.40093 30.6499 5.15639 31.3068C2.7607 32.5713 0.000781298 34.6049 0.000781298 38.0348H1.30078ZM11.8008 29.6344L12.5808 30.6744C13.4219 30.0436 14.2039 29.5751 14.8154 29.2546L14.2119 28.1031L13.6084 26.9517C12.8855 27.3306 11.9839 27.8721 11.0208 28.5944L11.8008 29.6344ZM14.2119 28.1031L14.8154 29.2546C14.7624 29.2823 14.6826 29.3048 14.5883 29.2993C14.4973 29.2939 14.4168 29.264 14.3538 29.2223C14.226 29.1378 14.1766 29.0122 14.1766 28.9225H15.4766H16.7766C16.7766 27.3993 15.1967 26.1193 13.6084 26.9517L14.2119 28.1031ZM15.4766 28.9225H14.1766V47.1471H15.4766H16.7766V28.9225H15.4766ZM15.4766 47.1471H14.1766C14.1766 47.0574 14.226 46.9318 14.3538 46.8472C14.4168 46.8056 14.4973 46.7757 14.5883 46.7703C14.6826 46.7648 14.7624 46.7872 14.8154 46.815L14.2119 47.9664L13.6084 49.1179C15.1967 49.9503 16.7766 48.6703 16.7766 47.1471H15.4766ZM14.2119 47.9664L14.8154 46.815C14.2039 46.4945 13.4219 46.026 12.5808 45.3952L11.8008 46.4352L11.0208 47.4752C11.9839 48.1975 12.8855 48.739 13.6084 49.1179L14.2119 47.9664ZM11.8008 46.4352L12.5808 45.3952C11.8953 44.8811 10.7953 44.4219 9.77424 43.9965C8.67426 43.5381 7.48807 43.0535 6.37011 42.4634C4.04084 41.234 2.6008 39.8548 2.60078 38.0348L1.30078 38.0348L0.000781298 38.0348C0.000818491 41.4647 2.76075 43.4983 5.15645 44.7628C6.40098 45.4197 7.70853 45.9524 8.77416 46.3964C9.91876 46.8734 10.6563 47.2018 11.0208 47.4752L11.8008 46.4352Z" fill="currentColor"/>
+                      <path d="M18.6367 32.3711C20.9669 33.2635 22.6367 35.67 22.6367 38.5C22.6367 41.3298 20.9667 43.7354 18.6367 44.6279V41.6436C19.4551 40.9663 20.0371 39.8704 20.0371 38.5C20.0371 37.1293 19.4553 36.0327 18.6367 35.3555V32.3711Z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Shuffle -->
+                <div class="shuffle-wrap">
+                  <span class="ctrl-tooltip">Shuffle</span>
+                  <span class="shuffle-dot" id="shuffleDot"></span>
+                <button class="ctrl-btn" id="shuffleBtn" aria-label="Shuffle">
+                  <svg width="20" height="22" viewBox="0 0 24 26" fill="none" aria-hidden="true">
+                    <path d="M17.2021 0.273589C17.7689 -0.166959 18.5856 -0.0645363 19.0264 0.502105L23.2305 5.90738L18.9189 10.2189C18.4113 10.7266 17.5887 10.7266 17.0811 10.2189C16.5734 9.71122 16.5734 8.88869 17.0811 8.38101L18.3623 7.09976H17C16.7927 7.09976 16.4164 7.19792 15.8359 7.5646C15.2729 7.92029 14.6297 8.45751 13.915 9.15347C12.4836 10.5475 10.9198 12.4269 9.31641 14.3761C7.73882 16.294 6.1177 18.2859 4.6377 19.7902C3.89677 20.5432 3.15035 21.2163 2.4248 21.7091C1.72664 22.1833 0.890625 22.5998 0 22.5998V20.0002C0.109366 20.0002 0.414074 19.9321 0.963867 19.5587C1.48627 19.2039 2.09551 18.6659 2.78418 17.966C4.16346 16.5641 5.6988 14.6808 7.30859 12.7238C8.89261 10.7981 10.5477 8.80239 12.1006 7.29019C12.878 6.5331 13.6686 5.85929 14.4473 5.36734C15.2084 4.88648 16.0823 4.50015 17 4.50015H18.8418L16.9736 2.09781C16.5331 1.53109 16.6355 0.71431 17.2021 0.273589Z" fill="currentColor"/>
+                    <path d="M6.98242 7.82822C5.90141 6.57962 4.82324 5.42112 3.81055 4.56747C3.30303 4.13966 2.78024 3.76169 2.25391 3.48544C1.7345 3.21286 1.13659 3.00009 0.5 3.00009V5.5997C0.564573 5.5997 0.737307 5.62525 1.0459 5.7872C1.34744 5.94547 1.71051 6.19813 2.13477 6.55576C2.98582 7.27317 3.95647 8.30474 5.01758 9.53036L6.98242 7.82822ZM17.7021 25.3263C18.2689 25.7668 19.0856 25.6644 19.5264 25.0977L23.7305 19.6925L19.4189 15.381C18.9113 14.8733 18.0887 14.8733 17.5811 15.381C17.0734 15.8886 17.0734 16.7112 17.5811 17.2188L18.8623 18.5001H17.5C17.2017 18.5001 16.6358 18.3026 15.7559 17.627C14.9193 16.9848 13.9798 16.0532 12.9639 14.9298L11.0361 16.6739C12.0873 17.8364 13.1501 18.9044 14.1729 19.6895C15.1522 20.4414 16.3028 21.0997 17.5 21.0997H19.3418L17.4736 23.502C17.0331 24.0688 17.1355 24.8855 17.7021 25.3263Z" fill="currentColor"/>
+                  </svg>
+                </button>
+                </div>
+
+                <!-- Previous -->
+                <div class="nav-wrap">
+                  <span class="ctrl-tooltip">Previous</span>
+                  <button class="ctrl-btn" id="prevBtn" aria-label="Previous">
+                    <svg width="22" height="22" viewBox="97 26 24 25" fill="none" aria-hidden="true">
+                      <path d="M119.801 49L102.301 39.5879V49H98.3008V28H102.301V36.8379L119.801 27V49Z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Play / Pause -->
+                <button class="ctrl-btn ctrl-btn--play" id="playBtn" aria-label="Play">
+                  <svg class="icon-play" width="40" height="40" viewBox="0 0 77 77" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M38.5 0C59.763 0 77 17.237 77 38.5C77 59.763 59.763 77 38.5 77C17.237 77 0 59.763 0 38.5C0 17.237 17.237 0 38.5 0ZM28.9893 23.0859C28.3227 22.712 27.5 23.1937 27.5 23.958V52.5117C27.5003 53.2827 28.3364 53.7636 29.0029 53.376L53.9873 38.8389C54.6559 38.4497 54.6484 37.4811 53.9736 37.1025L28.9893 23.0859Z" fill="#F0F0F0"/>
+                  </svg>
+                  <svg class="icon-pause" width="17" height="20" viewBox="0 0 14 18" fill="none" aria-hidden="true">
+                    <rect x="0"   y="0" width="4.5" height="18" rx="1.5" fill="currentColor"/>
+                    <rect x="9.5" y="0" width="4.5" height="18" rx="1.5" fill="currentColor"/>
+                  </svg>
+                </button>
+
+                <!-- Next -->
+                <div class="nav-wrap">
+                  <span class="ctrl-tooltip">Next</span>
+                  <button class="ctrl-btn" id="nextBtn" aria-label="Next">
+                    <svg width="22" height="22" viewBox="231 26 25 25" fill="none" aria-hidden="true">
+                      <path d="M232.801 49L250.301 39.5879V49H254.301V28H250.301V36.8379L232.801 27V49Z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Repeat -->
+                <div class="repeat-wrap">
+                  <span class="ctrl-tooltip" id="repeatTooltip">Enable repeat</span>
+                  <button class="ctrl-btn repeat-btn" id="repeatBtn" aria-label="Enable repeat">
+                    <!-- State 0 & 1: repeat-all icon -->
+                    <svg class="icon-repeat-all" width="22" height="22" viewBox="279 27 25 25" fill="none" aria-hidden="true">
+                      <path d="M286.301 46H285.301C283.092 46 281.301 44.2091 281.301 42V33C281.301 30.7909 283.092 29 285.301 29H298.801C301.01 29 302.801 30.7909 302.801 33V42C302.801 44.2091 301.01 46 298.801 46H292.301M292.301 46L296.301 42M292.301 46L296.301 50"
+                            stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+                    </svg>
+                    <!-- State 2: repeat-one icon -->
+                    <svg class="icon-repeat-one" width="22" height="22" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M15.3809 14.441C15.8885 13.9334 16.7111 13.9334 17.2188 14.441C17.7264 14.9487 17.7264 15.7712 17.2188 16.2789L15.4375 18.0602H18.7998C20.291 18.0602 21.5 16.8512 21.5 15.36V6.35999C21.5 4.86882 20.291 3.65979 18.7998 3.65979H18.4248C17.7068 3.65979 17.125 3.07796 17.125 2.35999C17.125 1.64202 17.7068 1.06018 18.4248 1.06018H18.7998C21.7269 1.06018 24.0996 3.43288 24.0996 6.35999V15.36C24.0996 18.2871 21.7269 20.6598 18.7998 20.6598H15.4375L17.2188 22.441C17.7264 22.9487 17.7264 23.7712 17.2188 24.2789C16.7111 24.7866 15.8885 24.7866 15.3809 24.2789L10.4609 19.36L15.3809 14.441ZM0 15.36V6.35999C0 3.43288 2.3727 1.06018 5.2998 1.06018H5.6748C6.39278 1.06018 6.97461 1.64202 6.97461 2.35999C6.97461 3.07796 6.39278 3.65979 5.6748 3.65979H5.2998C3.80864 3.65979 2.59961 4.86882 2.59961 6.35999V15.36C2.59961 16.8512 3.80864 18.0602 5.2998 18.0602H6.2998C7.01778 18.0602 7.59961 18.642 7.59961 19.36C7.59961 20.078 7.01778 20.6598 6.2998 20.6598H5.2998C2.3727 20.6598 0 18.2871 0 15.36Z" fill="currentColor"/>
+                      <path d="M11.9851 3.456H9.12109V1.92C10.1664 1.84533 10.9238 1.65867 11.3931 1.36C11.8624 1.05067 12.1558 0.597333 12.2731 0H14.2411V11.36H11.9851V3.456Z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  <span class="repeat-dot" id="repeatDot"></span>
+                </div>
+
+                <!-- Share -->
+                <div class="share-wrap">
+                  <span class="share-tooltip" id="shareTooltip">Copied link!</span>
+                <button class="ctrl-btn ctrl-btn--sm" id="queueBtn" aria-label="Copy link">
+                  <svg width="20" height="22" viewBox="326 23 23 29" fill="none" aria-hidden="true">
+                    <path d="M337.801 26.5L338.72 25.5808L337.853 24.714L336.937 25.5284L337.801 26.5ZM340.882 31.4192C341.389 31.9269 342.212 31.9269 342.72 31.4192C343.228 30.9116 343.228 30.0884 342.72 29.5808L341.801 30.5L340.882 31.4192ZM332.437 29.5284C331.9 30.0054 331.852 30.8271 332.329 31.3637C332.806 31.9003 333.628 31.9486 334.164 31.4716L333.301 30.5L332.437 29.5284ZM337.801 39H339.101V26.5H337.801H336.501V39H337.801ZM337.801 26.5L336.882 27.4192L340.882 31.4192L341.801 30.5L342.72 29.5808L338.72 25.5808L337.801 26.5ZM337.801 26.5L336.937 25.5284L332.437 29.5284L333.301 30.5L334.164 31.4716L338.664 27.4716L337.801 26.5Z" fill="currentColor"/>
+                    <path d="M331.301 34H328.301V48H347.301V34H344.301" stroke="currentColor" stroke-width="2.6"/>
+                  </svg>
+                </button>
+                </div>
+              </div>
+
+              <!-- Progress bar + timestamps -->
+              <div class="overlay-progress">
+                <div class="progress-times">
+                  <span id="currentTime">0:00</span>
+                  <span id="duration">3:00</span>
+                </div>
+                <div class="bar" id="progressBar">
+                  <div class="bar-preview" id="progressPreview"></div>
+                  <div class="bar-fill" id="progressFill"></div>
+                  <div class="bar-tooltip" id="progressTooltip">0:00</div>
+                </div>
+              </div>
+
+            </div><!-- /controls-overlay -->
+          </div><!-- /content-area -->
+
+          <!-- Footer: always visible — title, artist, add button -->
+          <div class="player-footer">
+            <div class="meta">
+              <h1></h1>
+              <p></p>
+            </div>
+            <button class="add-btn" id="addBtn" aria-label="Add to liked songs">
+              <!-- Default: plus circle -->
+              <svg class="icon-plus" width="24" height="24" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="17.8008" cy="17.8" r="16.5" stroke="#BABABA" stroke-width="2.6"/>
+                <rect x="16.3008" y="9.30005" width="3" height="17" fill="#BABABA"/>
+                <rect x="26.3008" y="16.3" width="3" height="17" transform="rotate(90 26.3008 16.3)" fill="#BABABA"/>
+              </svg>
+              <!-- Liked: green circle with checkmark -->
+              <svg class="icon-liked" width="24" height="24" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="18" cy="18" r="16.5" fill="#1ED760"/>
+                <path d="M11 18.5L16 23.5L25.5 13" stroke="#111111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Resize grip icon -->
+          <div class="resize-icon" aria-hidden="true">
+            <svg width="10" height="10" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M23.5 1.5L1.5 23.5" stroke="#393939" stroke-width="3" stroke-linecap="round"/>
+              <path d="M25.5 13.5L13.5 25.5" stroke="#393939" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+
+        </section>
+      </main>
+    </div>
+
+    <!-- Timing helper overlay (press T to open) -->
+    <div class="timer-overlay hidden" id="timerOverlay" role="dialog" aria-modal="true">
+      <div class="timer-screen" id="timerScreen">
+        <div class="timer-progress" id="timerProgress">Line 1 of 53</div>
+        <div class="timer-timestamp" id="timerTimestamp">0:00</div>
+        <div class="timer-current" id="timerCurrent"></div>
+        <div class="timer-next-label">up next</div>
+        <div class="timer-next" id="timerNext"></div>
+        <div class="timer-hint">
+          <kbd>Space</kbd> mark line &nbsp;·&nbsp; <kbd>R</kbd> redo last &nbsp;·&nbsp; <kbd>Esc</kbd> exit
+        </div>
+      </div>
+      <div class="timer-screen hidden" id="timerResults">
+        <div class="timer-done-icon">✓</div>
+        <h2 class="timer-done-title">Timing complete</h2>
+        <p class="timer-done-sub">Copy this into app.js to replace the lyrics array</p>
+        <pre class="timer-output" id="timerOutput"></pre>
+        <div class="timer-actions">
+          <button class="timer-copy-btn" id="timerCopyBtn">Copy to clipboard</button>
+          <button class="timer-close-btn" id="timerCloseBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
