@@ -104,6 +104,28 @@ function formatTime(seconds) {
 let lyrics = [];
 let currentTrackId = null;
 
+// ── Romanization ──────────────────────────────────────────────────────────────
+function hasNonLatin(text) {
+  return /[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/.test(text);
+}
+
+function isJapanese(text) {
+  // Hiragana or katakana present → treat as Japanese
+  return /[\u3040-\u30FF]/.test(text);
+}
+
+function romanizeText(text) {
+  try {
+    if (isJapanese(text) && window.wanakana) {
+      // wanakana correctly romanizes kana; kanji are left as-is (better than wrong pinyin)
+      return window.wanakana.toRomaji(text);
+    }
+    return window.transliteration?.transliterate(text) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function parseLrc(lrc) {
   const lines = [];
   for (const raw of lrc.split("\n")) {
@@ -165,7 +187,20 @@ function renderLyrics(message) {
       lineEl.className = "line is-upcoming";
       lineEl.dataset.index = index;
       lineEl.dataset.start = line.start;
-      lineEl.textContent = line.text;
+      if (hasNonLatin(line.text)) {
+        const roma = romanizeText(line.text);
+        if (roma && roma !== line.text) {
+          lineEl.appendChild(document.createTextNode(line.text));
+          const romaSpan = document.createElement("span");
+          romaSpan.className = "line-romanized";
+          romaSpan.textContent = roma;
+          lineEl.appendChild(romaSpan);
+        } else {
+          lineEl.textContent = line.text;
+        }
+      } else {
+        lineEl.textContent = line.text;
+      }
       lineEl.addEventListener("click", () => {
         const posMs = Math.floor(line.start * 1000);
         syncPosition(posMs, isPlaying);
@@ -551,6 +586,51 @@ function onVolUp(e) {
   document.removeEventListener("mouseup", onVolUp);
 }
 
+// ── Like confetti ─────────────────────────────────────────────────────────────
+const CONFETTI_COLORS = ['#1ed760', '#17b84e', '#25f470', '#0faf40'];
+
+function spawnConfetti(buttonEl) {
+  const btnRect   = buttonEl.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+
+  // Launch origin: center-top of the button
+  const ox = btnRect.left - stageRect.left + btnRect.width  / 2;
+  const oy = btnRect.top  - stageRect.top  + btnRect.height * 0.25;
+
+  const COUNT    = 7;
+  const DURATION = 300; // ms
+  const GRAVITY  = 0.15;
+
+  for (let i = 0; i < COUNT; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece ' + (Math.random() > 0.5 ? 'confetti-circle' : 'confetti-rect');
+    el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    el.style.left = ox + 'px';
+    el.style.top  = oy + 'px';
+    stage.appendChild(el);
+
+    // ~300° spread centered around straight-up, so particles don't just fall downward
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 5 / 3);
+    const speed = 1.4 + Math.random() * 1.2;
+    let x = ox, y = oy;
+    let vx = Math.cos(angle) * speed;
+    let vy = Math.sin(angle) * speed;
+    const t0 = performance.now();
+
+    (function tick(now) {
+      const progress = (now - t0) / DURATION;
+      if (progress >= 1) { el.remove(); return; }
+      vy += GRAVITY;
+      x  += vx;
+      y  += vy;
+      el.style.left    = x + 'px';
+      el.style.top     = y + 'px';
+      el.style.opacity = String(1 - progress);
+      requestAnimationFrame(tick);
+    })(performance.now());
+  }
+}
+
 // ── Liked songs ───────────────────────────────────────────────────────────────
 const addBtn = document.getElementById("addBtn");
 let isLiked = false;
@@ -572,6 +652,7 @@ addBtn.addEventListener("click", async () => {
     await spotifyFetch(`/me/tracks?ids=${currentTrackId}`, { method: "DELETE" });
     isLiked = false;
   } else {
+    spawnConfetti(addBtn);
     await spotifyFetch(`/me/tracks?ids=${currentTrackId}`, { method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: [currentTrackId] }) });
@@ -763,6 +844,13 @@ async function openPiP() {
 }
 
 document.addEventListener("visibilitychange", () => { if (document.hidden) openPiP(); });
+
+let isDimmed = false;
+document.getElementById("opacityBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  isDimmed = !isDimmed;
+  window.electronWindow.setOpacity(isDimmed ? 0.5 : 1);
+});
 
 document.querySelector(".dot").addEventListener("click", (e) => {
   e.stopPropagation();

@@ -34,7 +34,12 @@
               <rect x="23.1055" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
               <rect x="22.8047" y="7.94995" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
             </svg>
-            <span class="spacer"></span>
+            <button class="opacity-btn" id="opacityBtn" aria-label="Toggle opacity">
+              <svg width="12" height="12" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="12.9453" cy="12.9454" r="12" stroke="#BABABA" stroke-width="1.89091"/>
+                <path d="M12.9453 24.9454C6.3179 24.9454 0.945312 19.5729 0.945312 12.9454C0.945312 6.31802 6.3179 0.945435 12.9453 0.945435V24.9454Z" fill="#BABABA"/>
+              </svg>
+            </button>
           </div>
 
           <!-- Main content: album art OR karaoke lyrics -->
@@ -112,7 +117,7 @@
 
                 <!-- Play / Pause -->
                 <button class="ctrl-btn ctrl-btn--play" id="playBtn" aria-label="Play">
-                  <svg class="icon-play" width="40" height="40" viewBox="0 0 77 77" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <svg class="icon-play" width="36" height="36" viewBox="0 0 77 77" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M38.5 0C59.763 0 77 17.237 77 38.5C77 59.763 59.763 77 38.5 77C17.237 77 0 59.763 0 38.5C0 17.237 17.237 0 38.5 0ZM28.9893 23.0859C28.3227 22.712 27.5 23.1937 27.5 23.958V52.5117C27.5003 53.2827 28.3364 53.7636 29.0029 53.376L53.9873 38.8389C54.6559 38.4497 54.6484 37.4811 53.9736 37.1025L28.9893 23.0859Z" fill="#F0F0F0"/>
                   </svg>
                   <svg class="icon-pause" width="17" height="20" viewBox="0 0 14 18" fill="none" aria-hidden="true">
@@ -180,8 +185,8 @@
           <!-- Footer: always visible — title, artist, add button -->
           <div class="player-footer">
             <div class="meta">
-              <h1></h1>
-              <p></p>
+              <h1>Song Title</h1>
+              <p>Artist</p>
             </div>
             <button class="add-btn" id="addBtn" aria-label="Add to liked songs">
               <!-- Default: plus circle -->
@@ -234,6 +239,8 @@
       </div>
     </div>
 
+    <script src="https://unpkg.com/transliteration/dist/browser/bundle.umd.min.js"></script>
+    <script src="https://unpkg.com/wanakana/umd/wanakana.min.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

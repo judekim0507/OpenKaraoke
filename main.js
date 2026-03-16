@@ -57,8 +57,7 @@ function startCallbackServer(resolve, reject) {
       });
 
       const data = await response.json();
-      console.log("Token response:", JSON.stringify(data));
-      if (data.error) throw new Error(`${data.error}: ${data.error_description}`);
+if (data.error) throw new Error(`${data.error}: ${data.error_description}`);
 
       accessToken = data.access_token;
       refreshToken = data.refresh_token;
@@ -136,6 +135,7 @@ ipcMain.handle("login", async () => {
 ipcMain.handle("refresh-token", refreshAccessToken);
 
 ipcMain.on("minimize-window", () => mainWindow.minimize());
+ipcMain.on("set-window-opacity", (_e, value) => mainWindow.setOpacity(value));
 ipcMain.handle("get-window-pos", () => mainWindow.getPosition());
 ipcMain.on("set-window-pos", (_e, x, y) => mainWindow.setPosition(Math.round(x), Math.round(y)));
 ipcMain.on("set-window-size", (_e, w, h) => mainWindow.setSize(Math.round(w), Math.round(h)));
