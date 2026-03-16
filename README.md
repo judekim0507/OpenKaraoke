@@ -1,9 +1,5 @@
 # Spotify Karaoke
 
-A macOS Electron app that displays synced lyrics for whatever you're playing on Spotify — with a karaoke mode that highlights each line in real time.
-
-![Spotify Karaoke App](https://github.com/user-attachments/assets/placeholder)
-
 ## Features
 
 - Synced lyrics via [lrclib.net](https://lrclib.net)
@@ -42,7 +38,7 @@ A macOS Electron app that displays synced lyrics for whatever you're playing on 
 
 The app is in Spotify's development mode, so you have two options:
 
-**Option A — Request access:** Open an issue or contact the repo owner to be added as a test user. The Client ID is already included in `main.js`.
+**Option A — Request access:** Contact me on Twitter @meganvphi to be added as a test user. The Client ID is already included in `main.js`.
 
 **Option B — Use your own Client ID:**
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a new app.
