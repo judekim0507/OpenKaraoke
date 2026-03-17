@@ -4,6 +4,10 @@ A tiny always-on-top karaoke lyrics overlay for macOS. Works with any music app 
 
 ![macOS](https://img.shields.io/badge/macOS-only-black)
 
+<p align="center">
+  <img src="assets/screenshot.png" width="360" alt="OpenKaraoke screenshot" />
+</p>
+
 ## How it works
 
 OpenKaraoke reads what's playing on your Mac using the system's now-playing API (the same one that powers Control Center). It grabs the track info, fetches synced lyrics, and displays them in a floating overlay with real-time karaoke highlighting.
