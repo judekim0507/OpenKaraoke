@@ -1,46 +1,39 @@
-# Spotify Karaoke
+# OpenKaraoke
+
+A tiny always-on-top karaoke lyrics overlay for macOS. Works with any music app — Tidal, Spotify, Apple Music, whatever. No login required.
+
+![macOS](https://img.shields.io/badge/macOS-only-black)
+
+## How it works
+
+OpenKaraoke reads what's playing on your Mac using the system's now-playing API (the same one that powers Control Center). It grabs the track info, fetches synced lyrics, and displays them in a floating overlay with real-time karaoke highlighting.
 
 ## Features
 
-- Synced lyrics via [lrclib.net](https://lrclib.net)
-- Karaoke mode with real-time line highlighting
-- Album art with dynamic color theming
-- Full playback controls (play/pause, skip, seek, volume, shuffle, repeat)
-- Like/unlike the current track
-- Resizable, draggable frameless window
-- Picture-in-Picture support
+- Synced lyrics via [LrcLib](https://lrclib.net) with multi-result search + [Genius](https://genius.com) fallback
+- Karaoke mode with dynamic album art color theming
+- Playback controls — play/pause, prev, next, seek (controls your actual music app)
+- Album art fetched automatically via iTunes Search API
+- Japanese, Korean, and Chinese romanization
+- Draggable, resizable, always-on-top frameless window
+- Works with any app that shows up in macOS Now Playing
+
+## Setup
+
+```bash
+git clone https://github.com/judekim0507/OpenKaraoke.git
+cd OpenKaraoke
+npm install
+npm start
+```
+
+That's it. Play a song in any music app and lyrics show up automatically.
 
 ## Requirements
 
-- macOS
-- [Node.js](https://nodejs.org) (v18 or later recommended)
-- Spotify Premium account
+- macOS (uses private MediaRemote framework)
+- [Node.js](https://nodejs.org) v18+
 
-## Getting Started
+## Keyboard shortcuts
 
-1. Clone the repo and install dependencies:
-
-   ```bash
-   git clone https://github.com/mvphi/spotify-karaoke.git
-   cd spotify-karaoke
-   npm install
-   ```
-
-2. Run the app:
-
-   ```bash
-   npm start
-   ```
-
-3. A Spotify login window will open automatically. Sign in with your Spotify Premium account.
-
-## Spotify Access
-
-The app is in Spotify's development mode, so you have two options:
-
-**Option A — Request access:** Contact me on Twitter @meganvphi to be added as a test user. The Client ID is already included in `main.js`.
-
-**Option B — Use your own Client ID:**
-1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a new app.
-2. Add `http://127.0.0.1:8888/callback` as a Redirect URI in the app settings.
-3. Replace the `CLIENT_ID` value at the top of `main.js` with your own.
+- **T** — open timing helper (for manually syncing lyrics)
