@@ -5,7 +5,9 @@ A tiny always-on-top karaoke lyrics overlay for macOS. Works with any music app 
 ![macOS](https://img.shields.io/badge/macOS-only-black)
 
 <p align="center">
-  <img src="assets/screenshot.png" width="360" alt="OpenKaraoke screenshot" />
+  <img src="assets/screenshot.png" width="280" alt="OpenKaraoke mini player" />
+  &nbsp;&nbsp;
+  <img src="assets/screenshot-karaoke.png" width="280" alt="OpenKaraoke karaoke mode" />
 </p>
 
 ## How it works
