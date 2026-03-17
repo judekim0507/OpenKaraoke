@@ -1,19 +1,15 @@
 {
-  "name": "spotify-karaoke-app",
+  "name": "openkaraoke",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "description": "Universal karaoke lyrics overlay for any music player",
   "devDependencies": {
     "electron": "^41.0.2"
   },
   "dependencies": {
-    "express": "^5.2.1",
     "hangul-romanization": "^1.0.1",
     "kuroshiro": "^1.2.0",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",

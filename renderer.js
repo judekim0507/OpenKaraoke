@@ -1,3 +1,4 @@
+// ── DOM References ──────────────────────────────────────────────────────────
 const playBtn = document.getElementById("playBtn");
 const progressFill = document.getElementById("progressFill");
 const progressBar = document.getElementById("progressBar");
@@ -11,18 +12,29 @@ const playerCard = document.getElementById("playerCard");
 const lyricsEl = document.getElementById("lyrics");
 const stage = document.getElementById("stage");
 const dragHandle = document.getElementById("dragHandle");
+const sourceEl = document.getElementById("sourceApp");
+
+const APP_ICONS = {
+  "com.tidal.desktop":  "tidal",
+  "com.tidal.tidal":    "tidal",
+  "com.spotify.client": "spotify",
+  "com.apple.Music":    "applemusic",
+  "com.apple.iTunes":   "applemusic",
+  "tv.plex.plexamp":    "plex",
+  "com.amazon.music":   "amazonmusic",
+  "com.youtube.music":  "youtubemusic",
+};
 
 // ── Marquee title ─────────────────────────────────────────────────────────────
 const titleEl = document.querySelector(".meta h1");
 let currentTitleText = "";
-let marqueeTextWidth = 0; // cached plain-text pixel width
+let marqueeTextWidth = 0;
 
 function updateMarquee() {
   const isMarquee = titleEl.classList.contains("is-marquee");
   const containerW = titleEl.clientWidth;
 
   if (isMarquee) {
-    // Already running — only exit if it no longer overflows; never restart mid-animation
     if (marqueeTextWidth <= containerW + 1) {
       titleEl.classList.remove("is-marquee");
       titleEl.style.removeProperty("--marquee-duration");
@@ -35,7 +47,7 @@ function updateMarquee() {
   if (titleEl.scrollWidth <= containerW + 1) return;
 
   marqueeTextWidth = titleEl.scrollWidth;
-  const duration = Math.max(8, marqueeTextWidth / 35); // ~35 px/s, min 8s
+  const duration = Math.max(8, marqueeTextWidth / 35);
 
   titleEl.innerHTML =
     `<span class="marquee-inner">` +
@@ -44,20 +56,19 @@ function updateMarquee() {
     `</span>`;
   titleEl.classList.add("is-marquee");
 
-  // Two rAFs so the browser lays out the flex children before we measure
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const inner     = titleEl.querySelector(".marquee-inner");
-    const firstSpan = titleEl.querySelector(".marquee-text");
-    if (!inner || !firstSpan) return;
-    // offsetWidth gives exact px width of one copy (incl. padding), independent of parent overflow
-    const oneUnit = firstSpan.getBoundingClientRect().width;
-    titleEl.style.setProperty("--marquee-offset", `-${oneUnit}px`);
-    titleEl.style.setProperty("--marquee-duration", `${duration}s`);
-    // Restart animation so it picks up the new custom property values
-    inner.style.animation = "none";
-    void inner.offsetWidth; // force reflow
-    inner.style.animation = "";
-  }));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const inner = titleEl.querySelector(".marquee-inner");
+      const firstSpan = titleEl.querySelector(".marquee-text");
+      if (!inner || !firstSpan) return;
+      const oneUnit = firstSpan.getBoundingClientRect().width;
+      titleEl.style.setProperty("--marquee-offset", `-${oneUnit}px`);
+      titleEl.style.setProperty("--marquee-duration", `${duration}s`);
+      inner.style.animation = "none";
+      void inner.offsetWidth;
+      inner.style.animation = "";
+    })
+  );
 }
 
 function setTitle(text) {
@@ -72,10 +83,7 @@ function setTitle(text) {
 
 new ResizeObserver(updateMarquee).observe(titleEl);
 
-// ── Spotify Playback ──────────────────────────────────────────────────────────
-let spotifyPlayer = null;
-let deviceId = null;
-let playerState = null;
+// ── Playback State ──────────────────────────────────────────────────────────
 let progressRafId = null;
 let positionAtLastSync = 0;
 let lastSyncedAt = 0;
@@ -84,7 +92,10 @@ let simulatedDuration = 0;
 
 function getSimulatedPosition() {
   if (!isPlaying) return positionAtLastSync;
-  return Math.min(simulatedDuration, positionAtLastSync + (Date.now() - lastSyncedAt));
+  return Math.min(
+    simulatedDuration,
+    positionAtLastSync + (Date.now() - lastSyncedAt)
+  );
 }
 
 function syncPosition(posMs, playing) {
@@ -102,12 +113,14 @@ function formatTime(seconds) {
 
 // ── Lyrics ───────────────────────────────────────────────────────────────────
 let lyrics = [];
-let lyricsMode = "none"; // "synced" | "static" | "none"
-let currentTrackId = null;
+let lyricsMode = "none";
+let currentTrackKey = null;
 
-// ── Romanization ──────────────────────────────────────────────────────────────
+// ── Romanization ─────────────────────────────────────────────────────────────
 function hasNonLatin(text) {
-  return /[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/.test(text);
+  return /[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/.test(
+    text
+  );
 }
 
 function isJapanese(text) {
@@ -146,37 +159,103 @@ function parseLrc(lrc) {
     if (!match) continue;
     const mins = parseInt(match[1], 10);
     const secs = parseInt(match[2], 10);
-    const ms   = parseInt(match[3].padEnd(3, "0"), 10);
+    const ms = parseInt(match[3].padEnd(3, "0"), 10);
     const text = match[4].trim();
     if (text) lines.push({ start: mins * 60 + secs + ms / 1000, text });
   }
   return lines;
 }
 
+async function lrcLibSearch(artist, title) {
+  try {
+    const params = new URLSearchParams({ q: `${artist} ${title}`.trim() });
+    console.log("[Lyrics] LrcLib search:", params.toString());
+    const res = await fetch(`https://lrclib.net/api/search?${params}`);
+    if (!res.ok) return null;
+    const results = await res.json();
+    console.log("[Lyrics] LrcLib search:", results.length, "results,", results.filter((r) => r.syncedLyrics).length, "synced");
+    const synced = results.find((r) => r.syncedLyrics);
+    if (synced) return { lines: parseLrc(synced.syncedLyrics), synced: true };
+    const plain = results.find((r) => r.plainLyrics);
+    if (plain) {
+      return { lines: plain.plainLyrics.split("\n").map((t) => ({ text: t, start: null })), synced: false };
+    }
+  } catch (e) {
+    console.warn("[Lyrics] LrcLib search error:", e);
+  }
+  return null;
+}
+
 async function fetchLyrics(track) {
-  const artist   = track.artists[0]?.name || "";
-  const title    = track.name;
-  const album    = track.album?.name || "";
+  const artist = track.artists[0]?.name || "";
+  const title = track.name;
+  const album = track.album?.name || "";
   const duration = Math.round(track.duration_ms / 1000);
 
-  // Try lrclib first (synced)
-  const params = new URLSearchParams({ artist_name: artist, track_name: title, album_name: album, duration });
+  // 1. Try lrclib exact match (fastest)
   try {
-    const res  = await fetch(`https://lrclib.net/api/get?${params}`);
+    const params = new URLSearchParams({
+      artist_name: artist,
+      track_name: title,
+      album_name: album,
+      duration,
+    });
+    console.log("[Lyrics] LrcLib get:", `${params}`);
+    const res = await fetch(`https://lrclib.net/api/get?${params}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.syncedLyrics) return { lines: parseLrc(data.syncedLyrics), synced: true };
+      if (data.syncedLyrics)
+        return { lines: parseLrc(data.syncedLyrics), synced: true };
+      console.log("[Lyrics] LrcLib get: no synced lyrics in response");
+    } else {
+      console.log("[Lyrics] LrcLib get:", res.status);
     }
-  } catch {}
+  } catch (e) {
+    console.warn("[Lyrics] LrcLib get error:", e);
+  }
 
-  // Fallback: Genius (unsynced plain text)
+  // 2. Try lrclib search with artist + title
+  const lrcSearchResult = await lrcLibSearch(artist, title);
+  if (lrcSearchResult) return lrcSearchResult;
+
+  // 3. Try lrclib with cleaned/simplified title (strip parentheses, featured artists, etc.)
+  const cleanTitle = title
+    .replace(/\s*\(.*?\)\s*/g, " ")
+    .replace(/\s*\[.*?\]\s*/g, " ")
+    .replace(/\s*[-–—]\s*.*(feat|ft|remix|mix|version|edit).*$/i, "")
+    .trim();
+  if (cleanTitle !== title) {
+    console.log("[Lyrics] Retrying with cleaned title:", cleanTitle);
+    const cleanResult = await lrcLibSearch(artist, cleanTitle);
+    if (cleanResult) return cleanResult;
+  }
+
+  // 4. Try lrclib with just the title (no artist — handles wrong artist from MediaRemote)
+  if (artist) {
+    const noArtistResult = await lrcLibSearch("", title);
+    if (noArtistResult) return noArtistResult;
+  }
+
+  // 5. Fallback: Genius
   try {
+    console.log("[Lyrics] Trying Genius for:", artist, "-", title);
     const text = await window.genius.fetchLyrics(artist, title);
     if (text) {
       const lines = text.split("\n").map((t) => ({ text: t, start: null }));
       return { lines, synced: false };
     }
-  } catch {}
+    // Try Genius with clean title too
+    if (cleanTitle !== title) {
+      const text2 = await window.genius.fetchLyrics(artist, cleanTitle);
+      if (text2) {
+        const lines = text2.split("\n").map((t) => ({ text: t, start: null }));
+        return { lines, synced: false };
+      }
+    }
+    console.log("[Lyrics] Genius returned nothing");
+  } catch (e) {
+    console.warn("[Lyrics] Genius error:", e);
+  }
 
   return null;
 }
@@ -185,12 +264,14 @@ async function preRomanizeJapanese(lines) {
   if (!window.kuroshiro) return;
   const japanese = lines.filter((l) => l.text && isJapanese(l.text));
   if (!japanese.length) return;
-  await Promise.all(japanese.map(async (line) => {
-    try {
-      const roma = await window.kuroshiro.convert(line.text);
-      if (roma && roma !== line.text) line.romanized = roma;
-    } catch {}
-  }));
+  await Promise.all(
+    japanese.map(async (line) => {
+      try {
+        const roma = await window.kuroshiro.convert(line.text);
+        if (roma && roma !== line.text) line.romanized = roma;
+      } catch {}
+    })
+  );
 }
 
 let activeLineIndex = -1;
@@ -244,13 +325,6 @@ function renderLyrics(message) {
       } else {
         lineEl.textContent = line.text;
       }
-      if (lyricsMode === "synced") {
-        lineEl.addEventListener("click", () => {
-          const posMs = Math.floor(line.start * 1000);
-          syncPosition(posMs, isPlaying);
-          spotifyFetch(`/me/player/seek?position_ms=${posMs}`, { method: "PUT" });
-        });
-      }
       lyricsEl.appendChild(lineEl);
     });
   }
@@ -290,11 +364,15 @@ function updateLyrics() {
   if (newActiveIndex !== activeLineIndex) {
     activeLineIndex = newActiveIndex;
     if (newActiveIndex >= 0) {
-      lines[newActiveIndex].scrollIntoView({ block: "center", behavior: "smooth" });
+      lines[newActiveIndex].scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
     }
   }
 }
 
+// ── Progress ─────────────────────────────────────────────────────────────────
 function updateProgress() {
   const posMs = getSimulatedPosition();
   const t = posMs / 1000;
@@ -315,6 +393,7 @@ function startProgressTick() {
   progressRafId = requestAnimationFrame(tick);
 }
 
+// ── Album art + color extraction ────────────────────────────────────────────
 const artImg = document.querySelector(".art-panel img");
 
 function extractAndApplyColor(imgEl) {
@@ -325,14 +404,17 @@ function extractAndApplyColor(imgEl) {
     ctx.drawImage(imgEl, 0, 0, 64, 64);
     const data = ctx.getImageData(0, 0, 64, 64).data;
 
-    // Collect HSL + chroma score for every pixel
     const samples = [];
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const r = data[i] / 255,
+        g = data[i + 1] / 255,
+        b = data[i + 2] / 255;
+      const max = Math.max(r, g, b),
+        min = Math.min(r, g, b);
       const l = (max + min) / 2;
       const d = max - min;
-      let h = 0, s = 0;
+      let h = 0,
+        s = 0;
       if (d > 0) {
         s = d / (1 - Math.abs(2 * l - 1));
         if (max === r) h = ((g - b) / d + 6) % 6;
@@ -343,254 +425,218 @@ function extractAndApplyColor(imgEl) {
       samples.push({ h, s, l, chroma: s * (1 - Math.abs(2 * l - 1)) });
     }
 
-    // Average image lightness for the upcoming-lyric opacity heuristic
     const avgImgL = samples.reduce((a, p) => a + p.l, 0) / samples.length;
 
-    // Use the top 20% most chromatic (vivid) pixels to find the dominant hue
     samples.sort((a, b) => b.chroma - a.chroma);
     const top = samples.slice(0, Math.max(1, Math.floor(samples.length * 0.2)));
 
-    // Circular average for hue; arithmetic average for saturation
-    let sinSum = 0, cosSum = 0, sSum = 0;
+    let sinSum = 0,
+      cosSum = 0,
+      sSum = 0;
     for (const p of top) {
-      const rad = p.h * Math.PI / 180;
+      const rad = (p.h * Math.PI) / 180;
       sinSum += Math.sin(rad);
       cosSum += Math.cos(rad);
       sSum += p.s;
     }
-    const h = Math.round(((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360);
-    const s = Math.min(1, (sSum / top.length) * 1.3); // boost saturation
+    const h = Math.round(
+      ((Math.atan2(sinSum, cosSum) * 180) / Math.PI + 360) % 360
+    );
+    const s = Math.min(1, (sSum / top.length) * 1.3);
 
-    // Build all colors in HSL — always vivid
-    const sP  = Math.round(s * 100);
-    const light    = `hsl(${h},${sP}%,55%)`;
-    const dark     = `hsl(${h},${Math.round(s * 90)}%,18%)`;
-    const mid      = `hsl(${h},${Math.round(s * 95)}%,30%)`;
+    const sP = Math.round(s * 100);
+    const light = `hsl(${h},${sP}%,55%)`;
+    const dark = `hsl(${h},${Math.round(s * 90)}%,18%)`;
+    const mid = `hsl(${h},${Math.round(s * 95)}%,30%)`;
     const upcoming = `hsl(${h},${sP}%,62%)`;
 
-    // Light-background heuristic: if the art is overall bright, soften upcoming lyrics
-    const upcomingOpacity = avgImgL > 0.60 ? 0.7 : 1;
+    const upcomingOpacity = avgImgL > 0.6 ? 0.7 : 1;
 
     contentArea.style.setProperty("--art-color-light", light);
     contentArea.style.setProperty("--art-color-dark", dark);
     contentArea.style.setProperty("--art-color-mid", mid);
     contentArea.style.setProperty("--art-color-upcoming", upcoming);
     contentArea.style.setProperty("--upcoming-lyric-opacity", upcomingOpacity);
-  } catch (e) { /* cross-origin guard */ }
+  } catch (e) {
+    /* cross-origin guard */
+  }
 }
 
 function setArtUrl(url) {
   if (!url || artImg.src === url) return;
   artImg.crossOrigin = "anonymous";
+  artImg.style.display = "";
   artImg.src = url;
   artImg.onload = () => extractAndApplyColor(artImg);
 }
 
-function applyPlayerState(state) {
-  if (!state) return;
-  playerState = state;
-  simulatedDuration = state.duration;
-  syncPosition(state.position, !state.paused);
+// ── Now-Playing Observer ────────────────────────────────────────────────────
+async function onTrackChange(data) {
+  setTitle(data.title);
+  document.querySelector(".meta p").textContent = data.artist || "";
 
-  const paused = state.paused;
-  playBtn.classList.toggle("is-paused", !paused);
-
-  const track = state.track_window?.current_track;
-  if (track) {
-    setTitle(track.name);
-    document.querySelector(".meta p").textContent =
-      track.artists.map((a) => a.name).join(", ");
-    setArtUrl(track.album?.images?.[0]?.url);
-    simulatedDuration = state.duration;
-    durationEl.textContent = formatTime(state.duration / 1000);
-
-    if (track.id !== currentTrackId) {
-      currentTrackId = track.id;
-      lyrics = [];
-      lyricsMode = "none";
-      renderLyrics("Loading lyrics…");
-      fetchLyrics(track).then(async (fetched) => {
-        if (fetched) await preRomanizeJapanese(fetched.lines);
-        lyrics = fetched?.lines || [];
-        lyricsMode = fetched ? (fetched.synced ? "synced" : "static") : "none";
-        renderLyrics(fetched ? null : "No lyrics found for this track");
-      });
-      checkIfLiked(track.id);
+  const iconSlug = APP_ICONS[data.bundleId];
+  if (sourceEl) {
+    if (iconSlug) {
+      sourceEl.innerHTML = `<img src="https://cdn.simpleicons.org/${iconSlug}/white" alt="" />`;
+      sourceEl.style.display = "";
+    } else {
+      sourceEl.style.display = "none";
     }
   }
 
-  updateProgress();
-}
+  // Fetch album art via iTunes Search API
+  if (data.artist && data.title) {
+    const artUrl = await window.albumArt.fetch(data.artist, data.title);
+    if (artUrl) setArtUrl(artUrl);
+  }
 
-async function spotifyFetch(path, options = {}) {
-  const token = await window.spotify.getToken();
-  return fetch(`https://api.spotify.com/v1${path}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...options.headers },
-  });
-}
+  // Fetch lyrics
+  lyrics = [];
+  lyricsMode = "none";
+  renderLyrics("Loading lyrics\u2026");
 
-function initSpotifySDK(token) {
-  const script = document.createElement("script");
-  script.src = "https://sdk.scdn.co/spotify-player.js";
-  document.head.appendChild(script);
-
-  window.onSpotifyWebPlaybackSDKReady = () => {
-    spotifyPlayer = new Spotify.Player({
-      name: "Karaoke App",
-      getOAuthToken: (cb) => cb(token),
-      volume: 0.8,
-    });
-
-    spotifyPlayer.addListener("ready", ({ device_id }) => {
-      deviceId = device_id;
-      // Transfer playback to this device
-      spotifyFetch("/me/player", {
-        method: "PUT",
-        body: JSON.stringify({ device_ids: [device_id], play: false }),
-      });
-    });
-
-    spotifyPlayer.addListener("player_state_changed", applyPlayerState);
-    spotifyPlayer.connect();
-    startProgressTick();
+  const track = {
+    name: data.title,
+    artists: [{ name: data.artist || "" }],
+    album: { name: data.album || "" },
+    duration_ms: (data.duration || 0) * 1000,
   };
+
+  const fetched = await fetchLyrics(track);
+  if (fetched) await preRomanizeJapanese(fetched.lines);
+  lyrics = fetched?.lines || [];
+  lyricsMode = fetched ? (fetched.synced ? "synced" : "static") : "none";
+  renderLyrics(fetched ? null : "No lyrics found for this track");
 }
 
-// ── Poll currently playing (catches playback on other devices) ────────────────
-async function pollCurrentlyPlaying() {
-  try {
-    const res = await spotifyFetch("/me/player");
-    if (res.status === 204 || !res.ok) return; // nothing playing
-    const data = await res.json();
-    if (!data?.item) return;
-
-    const track = data.item;
-    const paused = !data.is_playing;
-
-    playBtn.classList.toggle("is-paused", !paused);
-    setTitle(track.name);
-    document.querySelector(".meta p").textContent =
-      track.artists.map((a) => a.name).join(", ");
-    setArtUrl(track.album?.images?.[0]?.url);
-
-    simulatedDuration = track.duration_ms;
-    syncPosition(data.progress_ms, data.is_playing);
-    durationEl.textContent = formatTime(track.duration_ms / 1000);
-
-    if (track.id !== currentTrackId) {
-      currentTrackId = track.id;
+window.nowPlaying.onUpdate((data) => {
+  if (!data || !data.title) {
+    // Nothing playing
+    if (currentTrackKey !== null) {
+      currentTrackKey = null;
+      setTitle("OpenKaraoke");
+      document.querySelector(".meta p").textContent = "Play a song in any app";
+      if (sourceEl) sourceEl.style.display = "none";
+      artImg.removeAttribute("src");
+      artImg.style.display = "none";
+      syncPosition(0, false);
+      simulatedDuration = 0;
       lyrics = [];
       lyricsMode = "none";
-      renderLyrics("Loading lyrics…");
-      fetchLyrics(track).then(async (fetched) => {
-        if (fetched) await preRomanizeJapanese(fetched.lines);
-        lyrics = fetched?.lines || [];
-        lyricsMode = fetched ? (fetched.synced ? "synced" : "static") : "none";
-        renderLyrics(fetched ? null : "No lyrics found for this track");
-      });
-      checkIfLiked(track.id);
+      renderLyrics("Play a song in any music app");
     }
-
-    // Sync shuffle state (skip if user interacted recently)
-    if (Date.now() - lastShuffleInteraction > 2000) {
-      shuffleDot.classList.toggle("visible", !!data.shuffle_state);
-    }
-
-    // Sync repeat state (skip if user interacted recently)
-    if (Date.now() - lastRepeatInteraction > 2000) {
-      if (data.repeat_state === "track")   applyRepeatState(2);
-      else if (data.repeat_state === "context") applyRepeatState(1);
-      else applyRepeatState(0);
-    }
-
-    updateProgress();
-  } catch (e) {
-    // silently ignore poll errors
+    return;
   }
+
+  // Update position and play state from MediaRemote
+  const elapsedMs = (data.elapsedTime || 0) * 1000;
+  const playing = data.playbackRate > 0 && data.playing;
+  simulatedDuration = (data.duration || 0) * 1000;
+  playBtn.classList.toggle("is-paused", playing);
+
+  // Skip position update if we just seeked (prevents snap-back)
+  if (Date.now() < seekLockUntil || progressDragging) {
+    // keep our optimistic position
+  } else if (playing && data.timestampEpoch) {
+    const tsMs = data.timestampEpoch * 1000;
+    const currentMs = elapsedMs + (Date.now() - tsMs) * data.playbackRate;
+    syncPosition(Math.max(0, currentMs), true);
+  } else {
+    syncPosition(elapsedMs, false);
+  }
+
+  // Detect track change
+  const trackKey = `${data.artist || ""}|${data.title}`;
+  if (trackKey !== currentTrackKey) {
+    currentTrackKey = trackKey;
+    onTrackChange(data);
+  }
+});
+
+startProgressTick();
+
+// ── Playback controls (sends system media key events) ───────────────────────
+playBtn.addEventListener("click", () => window.nowPlaying.playPause());
+document.getElementById("prevBtn").addEventListener("click", () => window.nowPlaying.prev());
+document.getElementById("nextBtn").addEventListener("click", () => window.nowPlaying.next());
+
+// ── Progress bar seeking (drag + click) ──────────────────────────────────────
+let progressDragging = false;
+let seekTimer = null;
+let seekLockUntil = 0; // ignore poll updates until this timestamp
+
+function progressFromEvent(e) {
+  const rect = progressBar.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 }
 
-// ── Auth init ─────────────────────────────────────────────────────────────────
-window.spotify.onTokenReady((token) => {
-  initSpotifySDK(token);
-  pollCurrentlyPlaying();
-  setInterval(pollCurrentlyPlaying, 3000);
-});
-window.spotify.onTokenRefreshed((token) => {
-  if (spotifyPlayer) spotifyPlayer._options.getOAuthToken = (cb) => cb(token);
-});
-
-// ── Playback controls ────────────────────────────────────────────────────────
-playBtn.addEventListener("click", async () => {
-  const playing = playBtn.classList.contains("is-paused");
-  if (playing) {
-    await spotifyFetch(`/me/player/pause`, { method: "PUT" });
-    playBtn.classList.remove("is-paused");
-    syncPosition(getSimulatedPosition(), false);
-  } else {
-    await spotifyFetch(`/me/player/play`, { method: "PUT" });
-    playBtn.classList.add("is-paused");
-    syncPosition(getSimulatedPosition(), true);
-  }
-});
-
-progressBar.addEventListener("click", (e) => {
-  const rect = progressBar.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
-  const posMs = Math.floor(pct * simulatedDuration);
+function scrubTo(pct) {
+  const posMs = pct * simulatedDuration;
   syncPosition(posMs, isPlaying);
-  spotifyFetch(`/me/player/seek?position_ms=${posMs}`, { method: "PUT" });
+  progressFill.style.transition = "none";
+  progressFill.style.width = `${pct * 100}%`;
+  // Lock out poll updates so bar doesn't snap back to old position
+  seekLockUntil = Date.now() + 1500;
+  // Debounce the actual seek command so we don't spam during drag
+  clearTimeout(seekTimer);
+  seekTimer = setTimeout(() => {
+    window.nowPlaying.seek(posMs / 1000);
+    progressFill.style.transition = "";
+  }, 80);
+}
+
+progressBar.addEventListener("mousedown", (e) => {
+  if (!simulatedDuration) return;
+  progressDragging = true;
+  scrubTo(progressFromEvent(e));
+  document.addEventListener("mousemove", onProgressDrag);
+  document.addEventListener("mouseup", onProgressUp);
 });
+
+function onProgressDrag(e) {
+  if (!progressDragging) return;
+  scrubTo(progressFromEvent(e));
+}
+
+function onProgressUp(e) {
+  if (!progressDragging) return;
+  progressDragging = false;
+  scrubTo(progressFromEvent(e));
+  document.removeEventListener("mousemove", onProgressDrag);
+  document.removeEventListener("mouseup", onProgressUp);
+}
 
 progressBar.addEventListener("mousemove", (e) => {
+  if (progressDragging) return;
   const rect = progressBar.getBoundingClientRect();
   const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
   const fraction = x / rect.width;
   const hoverTime = fraction * (simulatedDuration / 1000 || 0);
-
-  // Tooltip
   progressTooltip.textContent = formatTime(hoverTime);
   progressTooltip.style.left = `${x}px`;
-
-  // Preview bar — only show ahead of current position
   const currentFraction = simulatedDuration > 0 ? getSimulatedPosition() / simulatedDuration : 0;
   progressPreview.style.width = fraction > currentFraction ? `${fraction * 100}%` : "0%";
 });
 
 progressBar.addEventListener("mouseleave", () => {
-  progressPreview.style.width = "0%";
+  if (!progressDragging) progressPreview.style.width = "0%";
 });
 
-// ── Playback control buttons ──────────────────────────────────────────────────
-document.getElementById("prevBtn").addEventListener("click", () => {
-  spotifyFetch(`/me/player/previous`, { method: "POST" });
-});
-document.getElementById("nextBtn").addEventListener("click", () => {
-  spotifyFetch(`/me/player/next`, { method: "POST" });
-});
-// ── Volume slider ─────────────────────────────────────────────────────────────
-const volTrack   = document.getElementById("volTrack");
-const volFill    = document.getElementById("volFill");
+// ── Volume slider ────────────────────────────────────────────────────────────
+const volTrack = document.getElementById("volTrack");
+const volFill = document.getElementById("volFill");
 const volPreview = document.getElementById("volPreview");
-const volThumb   = document.getElementById("volThumb");
-const volumeBtn  = document.getElementById("volumeBtn");
+const volThumb = document.getElementById("volThumb");
+const volumeBtn = document.getElementById("volumeBtn");
 let currentVolume = 0.8;
-let volApiTimer = null;
 
 function applyVolume(v) {
   currentVolume = Math.max(0, Math.min(1, v));
   const pct = currentVolume * 100;
-  volFill.style.height  = `${pct}%`;
+  volFill.style.height = `${pct}%`;
   volThumb.style.bottom = `${pct}%`;
   volumeBtn.classList.toggle("is-muted", currentVolume === 0);
-}
-
-function sendVolumeToSpotify(v) {
-  clearTimeout(volApiTimer);
-  volApiTimer = setTimeout(() => {
-    if (spotifyPlayer) spotifyPlayer.setVolume(v);
-    spotifyFetch(`/me/player/volume?volume_percent=${Math.round(v * 100)}`, { method: "PUT" });
-  }, 50);
 }
 
 applyVolume(0.8);
@@ -605,177 +651,45 @@ let volDragging = false;
 volTrack.addEventListener("mousemove", (e) => {
   if (volDragging) return;
   const hoverV = volumeFromEvent(e);
-  volPreview.style.height = hoverV > currentVolume
-    ? `${hoverV * 100}%`
-    : "0%";
+  volPreview.style.height = hoverV > currentVolume ? `${hoverV * 100}%` : "0%";
 });
-
-volTrack.addEventListener("mouseleave", () => {
-  volPreview.style.height = "0%";
-});
-
+volTrack.addEventListener("mouseleave", () => { volPreview.style.height = "0%"; });
 volTrack.addEventListener("mousedown", (e) => {
   volDragging = true;
   const v = volumeFromEvent(e);
   applyVolume(v);
-  sendVolumeToSpotify(v);
   document.addEventListener("mousemove", onVolMove);
   document.addEventListener("mouseup", onVolUp);
 });
 
 function onVolMove(e) {
   if (!volDragging) return;
-  const v = volumeFromEvent(e);
-  applyVolume(v);
-  sendVolumeToSpotify(v);
+  applyVolume(volumeFromEvent(e));
 }
 
 function onVolUp(e) {
   if (!volDragging) return;
   volDragging = false;
-  const v = volumeFromEvent(e);
-  applyVolume(v);
-  sendVolumeToSpotify(v);
+  applyVolume(volumeFromEvent(e));
   document.removeEventListener("mousemove", onVolMove);
   document.removeEventListener("mouseup", onVolUp);
 }
 
-// ── Like confetti ─────────────────────────────────────────────────────────────
-const CONFETTI_COLORS = ['#1ed760', '#17b84e', '#25f470', '#0faf40'];
-
-function spawnConfetti(buttonEl) {
-  const btnRect   = buttonEl.getBoundingClientRect();
-  const stageRect = stage.getBoundingClientRect();
-
-  // Launch origin: center-top of the button
-  const ox = btnRect.left - stageRect.left + btnRect.width  / 2;
-  const oy = btnRect.top  - stageRect.top  + btnRect.height * 0.25;
-
-  const COUNT    = 7;
-  const DURATION = 300; // ms
-  const GRAVITY  = 0.15;
-
-  for (let i = 0; i < COUNT; i++) {
-    const el = document.createElement('div');
-    el.className = 'confetti-piece ' + (Math.random() > 0.5 ? 'confetti-circle' : 'confetti-rect');
-    el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-    el.style.left = ox + 'px';
-    el.style.top  = oy + 'px';
-    stage.appendChild(el);
-
-    // ~300° spread centered around straight-up, so particles don't just fall downward
-    const angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 5 / 3);
-    const speed = 1.4 + Math.random() * 1.2;
-    let x = ox, y = oy;
-    let vx = Math.cos(angle) * speed;
-    let vy = Math.sin(angle) * speed;
-    const t0 = performance.now();
-
-    (function tick(now) {
-      const progress = (now - t0) / DURATION;
-      if (progress >= 1) { el.remove(); return; }
-      vy += GRAVITY;
-      x  += vx;
-      y  += vy;
-      el.style.left    = x + 'px';
-      el.style.top     = y + 'px';
-      el.style.opacity = String(1 - progress);
-      requestAnimationFrame(tick);
-    })(performance.now());
-  }
-}
-
-// ── Liked songs ───────────────────────────────────────────────────────────────
-const addBtn = document.getElementById("addBtn");
-let isLiked = false;
-
-async function checkIfLiked(trackId) {
-  if (!trackId) return;
-  try {
-    const res = await spotifyFetch(`/me/tracks/contains?ids=${trackId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    isLiked = data[0] || false;
-    addBtn.classList.toggle("is-liked", isLiked);
-  } catch (e) { /* ignore */ }
-}
-
-addBtn.addEventListener("click", async () => {
-  if (!currentTrackId) return;
-  if (isLiked) {
-    await spotifyFetch(`/me/tracks?ids=${currentTrackId}`, { method: "DELETE" });
-    isLiked = false;
-  } else {
-    spawnConfetti(addBtn);
-    await spotifyFetch(`/me/tracks?ids=${currentTrackId}`, { method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [currentTrackId] }) });
-    isLiked = true;
-  }
-  addBtn.classList.toggle("is-liked", isLiked);
-});
-
-// ── Share / copy link ─────────────────────────────────────────────────────────
+// ── Share / copy track info ──────────────────────────────────────────────────
 const shareTooltip = document.getElementById("shareTooltip");
 let shareTooltipTimer = null;
 
-document.getElementById("queueBtn").addEventListener("click", () => {
-  if (!currentTrackId) return;
-  const url = `https://open.spotify.com/track/${currentTrackId}`;
-  navigator.clipboard.writeText(url);
+document.getElementById("shareBtn").addEventListener("click", () => {
+  const title = currentTitleText;
+  const artist = document.querySelector(".meta p").textContent;
+  if (!title || title === "OpenKaraoke") return;
+  navigator.clipboard.writeText(`${artist} - ${title}`);
   shareTooltip.classList.add("visible");
   clearTimeout(shareTooltipTimer);
   shareTooltipTimer = setTimeout(() => shareTooltip.classList.remove("visible"), 1000);
 });
 
-const shuffleDot = document.getElementById("shuffleDot");
-let lastShuffleInteraction = 0;
-let shuffleProcessing = false;
-document.getElementById("shuffleBtn").addEventListener("click", async () => {
-  if (shuffleProcessing) return;
-  shuffleProcessing = true;
-  lastShuffleInteraction = Date.now();
-  const on = !shuffleDot.classList.contains("visible");
-  shuffleDot.classList.toggle("visible", on);
-  await spotifyFetch(`/me/player/shuffle?state=${on}&device_id=${deviceId}`, { method: "PUT" });
-  shuffleProcessing = false;
-});
-// ── Repeat (3-state) ──────────────────────────────────────────────────────────
-const repeatBtn     = document.getElementById("repeatBtn");
-const repeatDot     = document.getElementById("repeatDot");
-const repeatTooltip = document.getElementById("repeatTooltip");
-// 0 = off, 1 = context, 2 = track
-let repeatState = 0;
-let lastRepeatInteraction = 0;
-let repeatProcessing = false;
-
-const REPEAT_STATES = [
-  { api: "off",     tooltip: "Enable repeat",     active: false, one: false, dot: false },
-  { api: "context", tooltip: "Enable repeat one",  active: true,  one: false, dot: true  },
-  { api: "track",   tooltip: "Disable repeat",     active: true,  one: true,  dot: true  },
-];
-
-function applyRepeatState(idx) {
-  repeatState = idx;
-  const s = REPEAT_STATES[idx];
-  repeatBtn.classList.toggle("is-active",      s.active);
-  repeatBtn.classList.toggle("is-repeat-one",  s.one);
-  repeatDot.classList.toggle("visible",        s.dot);
-  repeatTooltip.textContent = s.tooltip;
-  repeatBtn.setAttribute("aria-label", s.tooltip);
-}
-
-repeatBtn.addEventListener("click", async () => {
-  if (repeatProcessing) return;
-  repeatProcessing = true;
-  lastRepeatInteraction = Date.now();
-  const next = (repeatState + 1) % 3;
-  applyRepeatState(next);
-  await spotifyFetch(`/me/player/repeat?state=${REPEAT_STATES[next].api}`, { method: "PUT" });
-  repeatProcessing = false;
-});
-
-// ── Karaoke toggle ───────────────────────────────────────────────────────────
+// ── Karaoke toggle ──────────────────────────────────────────────────────────
 function setKaraoke(on) {
   contentArea.classList.toggle("karaoke-on", on);
   playerCard.classList.toggle("karaoke-on", on);
@@ -787,13 +701,19 @@ function setKaraoke(on) {
   }
 }
 
-karaokeToggle.addEventListener("click", () => setKaraoke(!contentArea.classList.contains("karaoke-on")));
-document.getElementById("exitKaraokeBtn").addEventListener("click", () => setKaraoke(false));
+karaokeToggle.addEventListener("click", () =>
+  setKaraoke(!contentArea.classList.contains("karaoke-on"))
+);
+document
+  .getElementById("exitKaraokeBtn")
+  .addEventListener("click", () => setKaraoke(false));
 
-// ── Drag to move window ───────────────────────────────────────────────────────
+// ── Drag to move window ─────────────────────────────────────────────────────
 let isDragging = false;
-let dragScreenStartX = 0, dragScreenStartY = 0;
-let dragWinStartX = 0, dragWinStartY = 0;
+let dragScreenStartX = 0,
+  dragScreenStartY = 0;
+let dragWinStartX = 0,
+  dragWinStartY = 0;
 
 dragHandle.addEventListener("mousedown", async (e) => {
   isDragging = true;
@@ -819,14 +739,19 @@ function onDragEnd() {
   document.removeEventListener("mouseup", onDragEnd);
 }
 
-// ── Resize window ─────────────────────────────────────────────────────────────
-const MIN_W = 280, MIN_H = 380;
-let isResizing = false, resizeDir = "";
-let resizeStartX = 0, resizeStartY = 0;
-let resizeStartW = 0, resizeStartH = 0;
-let resizeWinStartX = 0, resizeWinStartY = 0;
+// ── Resize window ────────────────────────────────────────────────────────────
+const MIN_W = 280,
+  MIN_H = 380;
+let isResizing = false,
+  resizeDir = "";
+let resizeStartX = 0,
+  resizeStartY = 0;
+let resizeStartW = 0,
+  resizeStartH = 0;
+let resizeWinStartX = 0,
+  resizeWinStartY = 0;
 
-document.querySelectorAll(".resize-edge").forEach(edge => {
+document.querySelectorAll(".resize-edge").forEach((edge) => {
   edge.addEventListener("mousedown", async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -856,9 +781,15 @@ function onResizeMove(e) {
   let newY = resizeWinStartY;
 
   if (resizeDir.includes("e")) newW = Math.max(MIN_W, resizeStartW + dx);
-  if (resizeDir.includes("w")) { newW = Math.max(MIN_W, resizeStartW - dx); newX = resizeWinStartX + (resizeStartW - newW); }
+  if (resizeDir.includes("w")) {
+    newW = Math.max(MIN_W, resizeStartW - dx);
+    newX = resizeWinStartX + (resizeStartW - newW);
+  }
   if (resizeDir.includes("s")) newH = Math.max(MIN_H, resizeStartH + dy);
-  if (resizeDir.includes("n")) { newH = Math.max(MIN_H, resizeStartH - dy); newY = resizeWinStartY + (resizeStartH - newH); }
+  if (resizeDir.includes("n")) {
+    newH = Math.max(MIN_H, resizeStartH - dy);
+    newY = resizeWinStartY + (resizeStartH - newH);
+  }
 
   window.electronWindow.setSize(newW, newH);
   window.electronWindow.setPos(newX, newY);
@@ -870,7 +801,7 @@ function onResizeEnd() {
   document.removeEventListener("mouseup", onResizeEnd);
 }
 
-// ── Picture-in-Picture ────────────────────────────────────────────────────────
+// ── Picture-in-Picture ──────────────────────────────────────────────────────
 const appEl = document.querySelector(".app");
 const stylesheetHref = document.querySelector("link[rel='stylesheet']").href;
 
@@ -893,11 +824,17 @@ async function openPiP() {
       "margin:0;padding:12px;background:#000;display:flex;" +
       "align-items:center;justify-content:flex-end;min-height:100vh;box-sizing:border-box;";
     pipWindow.document.body.appendChild(stage);
-    pipWindow.addEventListener("pagehide", () => { appEl.appendChild(stage); });
-  } catch (e) { console.warn("PiP unavailable:", e); }
+    pipWindow.addEventListener("pagehide", () => {
+      appEl.appendChild(stage);
+    });
+  } catch (e) {
+    console.warn("PiP unavailable:", e);
+  }
 }
 
-document.addEventListener("visibilitychange", () => { if (document.hidden) openPiP(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) openPiP();
+});
 
 let isDimmed = false;
 document.getElementById("opacityBtn").addEventListener("click", (e) => {
@@ -915,7 +852,7 @@ document.querySelector(".dot").addEventListener("click", (e) => {
 const TIMING_LYRICS = [
   "Again, had to call it off again",
   "Again, guess we're better off as friends",
-  "Wait, give me space, I said, \"Boy, get out my face\"",
+  'Wait, give me space, I said, "Boy, get out my face"',
   "It's okay, you can't relate, yeah, had to call it off again",
   "Had to call it off again",
   "Had to call it off again",
@@ -937,7 +874,7 @@ const TIMING_LYRICS = [
   "I'm just a call away",
   "Again, had to call it off again",
   "Again, guess we're better off as friends",
-  "Wait, give me space, I said, \"Boy, get out my face\"",
+  'Wait, give me space, I said, "Boy, get out my face"',
   "It's okay, you can't relate, yeah, had to call it off again",
   "Had to call it off again",
   "Had to call it off again",
@@ -956,7 +893,7 @@ const TIMING_LYRICS = [
   "It's like you're the final boss, and I'm just tryna beat these games",
   "Again, had to call it off again",
   "Again, guess we better off as friends",
-  "Wait, give me space, I said, \"Boy, get out my face\"",
+  'Wait, give me space, I said, "Boy, get out my face"',
   "It's okay, you can't relate, yeah, had to call it off again",
   "Had to call it off again",
   "Had to call it off again",
@@ -968,20 +905,20 @@ const TIMING_LYRICS = [
   "Ooh-ooh-hoo (again), ooh-ooh-ooh, ooh",
 ];
 
-const timerOverlay   = document.getElementById("timerOverlay");
-const timerScreen    = document.getElementById("timerScreen");
-const timerResults   = document.getElementById("timerResults");
-const timerProgress  = document.getElementById("timerProgress");
+const timerOverlay = document.getElementById("timerOverlay");
+const timerScreen = document.getElementById("timerScreen");
+const timerResults = document.getElementById("timerResults");
+const timerProgress = document.getElementById("timerProgress");
 const timerTimestamp = document.getElementById("timerTimestamp");
-const timerCurrent   = document.getElementById("timerCurrent");
-const timerNext      = document.getElementById("timerNext");
-const timerOutput    = document.getElementById("timerOutput");
-const timerCopyBtn   = document.getElementById("timerCopyBtn");
-const timerCloseBtn  = document.getElementById("timerCloseBtn");
+const timerCurrent = document.getElementById("timerCurrent");
+const timerNext = document.getElementById("timerNext");
+const timerOutput = document.getElementById("timerOutput");
+const timerCopyBtn = document.getElementById("timerCopyBtn");
+const timerCloseBtn = document.getElementById("timerCloseBtn");
 
 let timingMode = false;
 let timingIndex = 0;
-let timingMarks = []; // { start, text }
+let timingMarks = [];
 let timingRaf = null;
 
 function timerTick() {
@@ -994,11 +931,9 @@ function openTimingMode() {
   timingMode = true;
   timingIndex = 0;
   timingMarks = [];
-
   timerScreen.classList.remove("hidden");
   timerResults.classList.add("hidden");
   timerOverlay.classList.remove("hidden");
-
   refreshTimerUI();
   timingRaf = requestAnimationFrame(timerTick);
 }
@@ -1013,18 +948,16 @@ function refreshTimerUI() {
   const total = TIMING_LYRICS.length;
   timerProgress.textContent = `Line ${timingIndex + 1} of ${total}`;
   timerCurrent.textContent = TIMING_LYRICS[timingIndex] ?? "";
-  timerNext.textContent = TIMING_LYRICS[timingIndex + 1] ?? "—";
+  timerNext.textContent = TIMING_LYRICS[timingIndex + 1] ?? "\u2014";
 }
 
 function markLine() {
   if (timingIndex >= TIMING_LYRICS.length) return;
-
   timingMarks.push({
     start: parseFloat((getSimulatedPosition() / 1000).toFixed(2)),
     text: TIMING_LYRICS[timingIndex],
   });
   timingIndex++;
-
   if (timingIndex >= TIMING_LYRICS.length) {
     finishTiming();
   } else {
@@ -1041,12 +974,13 @@ function redoLastLine() {
 
 function finishTiming() {
   cancelAnimationFrame(timingRaf);
-
   const lines = timingMarks
-    .map((m) => `  { start: ${m.start.toFixed(2)}, text: "${m.text.replace(/"/g, '\\"')}" }`)
+    .map(
+      (m) =>
+        `  { start: ${m.start.toFixed(2)}, text: "${m.text.replace(/"/g, '\\"')}" }`
+    )
     .join(",\n");
   const output = `const lyrics = [\n${lines}\n];`;
-
   timerOutput.textContent = output;
   timerScreen.classList.add("hidden");
   timerResults.classList.remove("hidden");
@@ -1061,7 +995,7 @@ timerCopyBtn.addEventListener("click", () => {
 
 timerCloseBtn.addEventListener("click", closeTimingMode);
 
-// Press T anywhere (outside inputs) to open timing mode
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
@@ -1081,5 +1015,5 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-renderLyrics();
+renderLyrics("Play a song in any music app");
 updateProgress();

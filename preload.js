@@ -7,11 +7,17 @@ const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
 const kuroshiro = new Kuroshiro();
 const kuroshiroReady = kuroshiro.init(new KuromojiAnalyzer());
 
-contextBridge.exposeInMainWorld("spotify", {
-  login: () => ipcRenderer.invoke("login"),
-  getToken: () => ipcRenderer.invoke("get-token"),
-  onTokenReady: (cb) => ipcRenderer.on("token-ready", (_e, token) => cb(token)),
-  onTokenRefreshed: (cb) => ipcRenderer.on("token-refreshed", (_e, token) => cb(token)),
+contextBridge.exposeInMainWorld("nowPlaying", {
+  onUpdate: (cb) => ipcRenderer.on("now-playing", (_e, data) => cb(data)),
+  playPause: () => ipcRenderer.send("media-play-pause"),
+  next: () => ipcRenderer.send("media-next"),
+  prev: () => ipcRenderer.send("media-prev"),
+  seek: (positionSec) => ipcRenderer.send("media-seek", positionSec),
+});
+
+contextBridge.exposeInMainWorld("albumArt", {
+  fetch: (artist, title) =>
+    ipcRenderer.invoke("fetch-album-art", artist, title),
 });
 
 contextBridge.exposeInMainWorld("kuroshiro", {
@@ -30,7 +36,8 @@ contextBridge.exposeInMainWorld("pinyinPro", {
 });
 
 contextBridge.exposeInMainWorld("genius", {
-  fetchLyrics: (artist, title) => ipcRenderer.invoke("fetch-genius-lyrics", artist, title),
+  fetchLyrics: (artist, title) =>
+    ipcRenderer.invoke("fetch-genius-lyrics", artist, title),
 });
 
 contextBridge.exposeInMainWorld("electronWindow", {
