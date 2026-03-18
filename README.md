@@ -18,10 +18,15 @@ OpenKaraoke reads what's playing on your Mac using the system's now-playing API 
 
 - Synced lyrics via [LrcLib](https://lrclib.net) with multi-result search + [Genius](https://genius.com) fallback
 - Karaoke mode with dynamic album art color theming
-- Playback controls — play/pause, prev, next, seek (controls your actual music app)
+- **Fullscreen mode** — Apple Music-style split view with album art, controls, and lyrics with edge fade
+- Playback controls — play/pause, prev, next, seek (controls your actual music app via system media keys)
+- Click any lyric line to seek to that timestamp
 - Album art fetched automatically via iTunes Search API
 - Japanese, Korean, and Chinese romanization
 - Draggable, resizable, always-on-top frameless window
+- **Menu bar tray icon** — hidden from Dock and Cmd+Tab, lives quietly in the menu bar
+- Source app detection with icons (Tidal, Spotify, Apple Music, etc.)
+- Auto-hiding cursor and controls in fullscreen
 - Works with any app that shows up in macOS Now Playing
 
 ## Setup
@@ -35,11 +40,14 @@ npm start
 
 That's it. Play a song in any music app and lyrics show up automatically.
 
+Or grab the latest `.dmg` from [Releases](https://github.com/judekim0507/OpenKaraoke/releases).
+
 ## Requirements
 
 - macOS (uses private MediaRemote framework)
-- [Node.js](https://nodejs.org) v18+
+- [Node.js](https://nodejs.org) v18+ (for development)
 
 ## Keyboard shortcuts
 
 - **T** — open timing helper (for manually syncing lyrics)
+- **Esc** — exit fullscreen
