@@ -1,11 +1,16 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require("electron");
 const { execFile } = require("child_process");
 const path = require("path");
 
 const GENIUS_TOKEN =
   "InCSp34L9lU9pFMV5nfL41tOthLDIXvNqk4g10P8TrQTsDI7cJwCcLegbKIBimI0";
 
+// Set app name and hide from Dock + Cmd+Tab
+app.setName("OpenKaraoke");
+if (app.dock) app.dock.hide();
+
 let mainWindow;
+let tray;
 let pollInterval;
 
 // ── JXA script: read macOS now-playing via MediaRemote framework ─────────────
@@ -183,7 +188,11 @@ ipcMain.handle("fetch-album-art", async (_e, artist, title) => {
 });
 
 // ── Window management ────────────────────────────────────────────────────────
-ipcMain.on("minimize-window", () => mainWindow.minimize());
+ipcMain.on("minimize-window", () => mainWindow.hide());
+ipcMain.on("toggle-fullscreen", () => {
+  mainWindow.setFullScreen(!mainWindow.isFullScreen());
+});
+ipcMain.on("exit-fullscreen", () => mainWindow.setFullScreen(false));
 ipcMain.on("set-window-opacity", (_e, value) => mainWindow.setOpacity(value));
 ipcMain.handle("get-window-pos", () => mainWindow.getPosition());
 ipcMain.on("set-window-pos", (_e, x, y) =>
@@ -215,9 +224,64 @@ app.whenReady().then(() => {
     },
   });
 
+  // Inject Liquid Glass icon into the Electron app bundle
+  if (process.platform === "darwin") {
+    const { copyFileSync, existsSync } = require("fs");
+    const { execFileSync } = require("child_process");
+    const resourcesDir = process.resourcesPath; // .../Electron.app/Contents/Resources/
+    const contentsDir = path.join(resourcesDir, ".."); // .../Electron.app/Contents/
+    const plistPath = path.join(contentsDir, "Info.plist");
+    const carDest = path.join(resourcesDir, "Assets.car");
+    const carSrc = path.join(__dirname, "assets/Assets.car");
+
+    try {
+      if (existsSync(carSrc)) {
+        copyFileSync(carSrc, carDest);
+        // Set CFBundleIconName in Info.plist so macOS reads the Liquid Glass icon
+        try { execFileSync("/usr/libexec/PlistBuddy", ["-c", "Delete :CFBundleIconName", plistPath], { stdio: "ignore" }); } catch {}
+        execFileSync("/usr/libexec/PlistBuddy", ["-c", "Add :CFBundleIconName string OpenKaraoke", plistPath], { stdio: "ignore" });
+        // Also replace the .icns fallback
+        const icnsDest = path.join(resourcesDir, "electron.icns");
+        const icnsSrc = path.join(__dirname, "assets/icon.icns");
+        if (existsSync(icnsSrc)) copyFileSync(icnsSrc, icnsDest);
+      }
+    } catch (e) {
+      console.warn("Icon setup:", e.message);
+    }
+
+    // dock.setIcon not needed — CFBundleIconName handles it
+  }
+
   mainWindow.loadFile("index.html");
   mainWindow.show();
   startPolling();
+
+  // Menu bar tray icon (since we're hidden from Dock)
+  const canvas = Buffer.alloc(16 * 16 * 4, 0);
+  const px = (x, y) => { const i = (y * 16 + x) * 4; canvas[i] = 0; canvas[i+1] = 0; canvas[i+2] = 0; canvas[i+3] = 255; };
+  // Stem (centered)
+  for (let y = 1; y <= 10; y++) { px(9, y); px(10, y); }
+  // Flag
+  for (let x = 9; x <= 13; x++) { px(x, 1); px(x, 2); }
+  for (let x = 11; x <= 13; x++) { px(x, 3); px(x, 4); }
+  // Note head (centered)
+  for (let x = 4; x <= 10; x++) { px(x, 10); px(x, 11); }
+  for (let x = 5; x <= 9; x++) { px(x, 9); px(x, 12); }
+
+  const trayIcon = nativeImage.createFromBuffer(canvas, { width: 16, height: 16 });
+  trayIcon.setTemplateImage(true);
+  tray = new Tray(trayIcon);
+  tray.setToolTip("OpenKaraoke");
+  tray.on("click", () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Show", click: () => { mainWindow.show(); mainWindow.focus(); } },
+    { label: "Hide", click: () => mainWindow.hide() },
+    { type: "separator" },
+    { label: "Quit", click: () => app.quit() },
+  ]));
 });
 
 app.on("window-all-closed", () => {

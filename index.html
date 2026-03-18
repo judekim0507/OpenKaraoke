@@ -23,7 +23,10 @@
 
           <!-- Top bar -->
           <div class="player-top" id="dragHandle">
-            <span class="dot"></span>
+            <div class="dot-group">
+              <span class="dot" id="minimizeBtn"></span>
+              <span class="dot dot-green" id="fullscreenBtn"></span>
+            </div>
             <svg class="grip" width="16" height="7" viewBox="0 0 27 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <rect x="0.300781" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
               <rect y="7.6001" width="3.6" height="3.6" rx="1" fill="#BABABA"/>
@@ -148,9 +151,19 @@
 
           <!-- Footer -->
           <div class="player-footer">
+            <img class="fs-thumb" id="fsThumb" src="" alt="" />
             <div class="meta">
               <h1>OpenKaraoke</h1>
               <p>Play a song in any app</p>
+            </div>
+            <div class="fs-progress">
+              <div class="fs-bar" id="fsBar">
+                <div class="fs-bar-fill" id="fsBarFill"></div>
+              </div>
+              <div class="fs-times">
+                <span id="fsCurrentTime">0:00</span>
+                <span id="fsDuration">0:00</span>
+              </div>
             </div>
             <span class="source-app" id="sourceApp"></span>
           </div>

@@ -325,6 +325,14 @@ function renderLyrics(message) {
       } else {
         lineEl.textContent = line.text;
       }
+      if (lyricsMode === "synced") {
+        lineEl.style.cursor = "pointer";
+        lineEl.addEventListener("click", () => {
+          const posSec = line.start;
+          window.nowPlaying.seek(posSec);
+          syncPosition(posSec * 1000, isPlaying);
+        });
+      }
       lyricsEl.appendChild(lineEl);
     });
   }
@@ -381,6 +389,10 @@ function updateProgress() {
   progressFill.style.width = `${percent}%`;
   currentTimeEl.textContent = formatTime(t);
   durationEl.textContent = formatTime(dur);
+  // Fullscreen progress bar
+  if (fsBarFill) fsBarFill.style.width = `${percent}%`;
+  if (fsCurrentTime) fsCurrentTime.textContent = formatTime(t);
+  if (fsDuration) fsDuration.textContent = formatTime(dur);
   updateLyrics();
 }
 
@@ -468,6 +480,9 @@ function setArtUrl(url) {
   artImg.style.display = "";
   artImg.src = url;
   artImg.onload = () => extractAndApplyColor(artImg);
+  // Fullscreen thumbnail
+  const thumb = document.getElementById("fsThumb");
+  if (thumb) { thumb.src = url; thumb.style.display = ""; }
 }
 
 // ── Now-Playing Observer ────────────────────────────────────────────────────
@@ -843,10 +858,62 @@ document.getElementById("opacityBtn").addEventListener("click", (e) => {
   window.electronWindow.setOpacity(isDimmed ? 0.5 : 1);
 });
 
-document.querySelector(".dot").addEventListener("click", (e) => {
+document.getElementById("minimizeBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   window.electronWindow.minimize();
 });
+
+// ── Fullscreen mode ──────────────────────────────────────────────────────────
+const fsThumb = document.getElementById("fsThumb");
+const fsBarFill = document.getElementById("fsBarFill");
+const fsCurrentTime = document.getElementById("fsCurrentTime");
+const fsDuration = document.getElementById("fsDuration");
+const fsBar = document.getElementById("fsBar");
+let isFullscreen = false;
+
+document.getElementById("fullscreenBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  window.electronWindow.toggleFullscreen();
+  isFullscreen = !isFullscreen;
+  playerCard.classList.toggle("is-fullscreen", isFullscreen);
+  // In fullscreen, force karaoke-on so lyrics panel is visible
+  if (isFullscreen) {
+    contentArea.classList.add("karaoke-on");
+    playerCard.classList.add("karaoke-on");
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isFullscreen) {
+    window.electronWindow.exitFullscreen();
+    isFullscreen = false;
+    playerCard.classList.remove("is-fullscreen");
+    playerCard.classList.remove("fs-controls-visible");
+  }
+});
+
+// Auto-hide controls in fullscreen — show on mouse move, hide after 3s idle
+let fsIdleTimer = null;
+document.addEventListener("mousemove", () => {
+  if (!isFullscreen) return;
+  playerCard.classList.add("fs-controls-visible");
+  clearTimeout(fsIdleTimer);
+  fsIdleTimer = setTimeout(() => {
+    playerCard.classList.remove("fs-controls-visible");
+  }, 3000);
+});
+
+// Seek from fullscreen progress bar
+if (fsBar) {
+  fsBar.addEventListener("click", (ev) => {
+    if (!simulatedDuration) return;
+    const rect = fsBar.getBoundingClientRect();
+    const pct = (ev.clientX - rect.left) / rect.width;
+    const posSec = pct * (simulatedDuration / 1000);
+    window.nowPlaying.seek(posSec);
+    syncPosition(posSec * 1000, isPlaying);
+  });
+}
 
 // ── Timing helper ────────────────────────────────────────────────────────────
 const TIMING_LYRICS = [

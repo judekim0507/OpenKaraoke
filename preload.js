@@ -46,5 +46,7 @@ contextBridge.exposeInMainWorld("electronWindow", {
   getSize: () => ipcRenderer.invoke("get-window-size"),
   setSize: (w, h) => ipcRenderer.send("set-window-size", w, h),
   minimize: () => ipcRenderer.send("minimize-window"),
+  toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
+  exitFullscreen: () => ipcRenderer.send("exit-fullscreen"),
   setOpacity: (v) => ipcRenderer.send("set-window-opacity", v),
 });

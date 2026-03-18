@@ -1,0 +1,33 @@
+appId: com.judekim.openkaraoke
+productName: OpenKaraoke
+
+mac:
+  category: public.app-category.music
+  icon: assets/OpenKaraoke.icon
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  extendInfo:
+    CFBundleIconName: OpenKaraoke
+  extraResources:
+    - from: assets/Assets.car
+      to: ../Assets.car
+
+dmg:
+  title: OpenKaraoke
+  artifactName: OpenKaraoke-${version}-${arch}.${ext}
+
+files:
+  - "**/*"
+  - "!assets/mediakey.swift"
+  - "!assets/OpenKaraoke.icon"
+
+publish:
+  provider: github
+  owner: judekim0507
+  repo: OpenKaraoke
