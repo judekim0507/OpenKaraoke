@@ -79,10 +79,11 @@ body {
 .player-top:active { cursor: grabbing; }
 .player-card:hover .player-top { height: 28px; opacity: 1; pointer-events: auto; }
 
-.dot-group { display: flex; gap: 6px; align-items: center; }
+.dot-group { display: flex; gap: 6px; align-items: center; flex: 1; }
 .dot { width: 12px; height: 12px; border-radius: 50%; background: #FFBD2E; flex-shrink: 0; cursor: pointer; }
 .dot-green { background: #28C840; }
 .grip { flex-shrink: 0; }
+.opacity-btn-wrap { flex: 1; display: flex; justify-content: flex-end; }
 .opacity-btn {
   background: none; border: none; cursor: pointer; padding: 0;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -476,6 +477,29 @@ kbd {
 .player-card.is-fullscreen {
   padding: 0; border-radius: 0;
 }
+
+/* Exit fullscreen button — top-left, only in fullscreen */
+.fs-exit-btn {
+  display: none;
+  position: absolute;
+  top: 20px; left: 20px;
+  z-index: 20;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: rgba(255,255,255,0.6);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease, background 0.2s ease;
+}
+.fs-exit-btn:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+.player-card.is-fullscreen .fs-exit-btn { display: flex; }
+.player-card.is-fullscreen.fs-controls-visible .fs-exit-btn { opacity: 1; }
 
 /* Hide mini player chrome */
 .player-card.is-fullscreen .player-top,

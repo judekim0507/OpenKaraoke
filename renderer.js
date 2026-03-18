@@ -891,23 +891,30 @@ document.getElementById("fullscreenBtn").addEventListener("click", (e) => {
   }
 });
 
+function exitFullscreen() {
+  window.electronWindow.exitFullscreen();
+  isFullscreen = false;
+  playerCard.classList.remove("is-fullscreen");
+  playerCard.classList.remove("fs-controls-visible");
+  document.body.style.cursor = "";
+}
+
+document.getElementById("fsExitBtn").addEventListener("click", exitFullscreen);
+
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && isFullscreen) {
-    window.electronWindow.exitFullscreen();
-    isFullscreen = false;
-    playerCard.classList.remove("is-fullscreen");
-    playerCard.classList.remove("fs-controls-visible");
-  }
+  if (e.key === "Escape" && isFullscreen) exitFullscreen();
 });
 
-// Auto-hide controls in fullscreen — show on mouse move, hide after 3s idle
+// Auto-hide controls + cursor in fullscreen
 let fsIdleTimer = null;
 document.addEventListener("mousemove", () => {
   if (!isFullscreen) return;
   playerCard.classList.add("fs-controls-visible");
+  document.body.style.cursor = "";
   clearTimeout(fsIdleTimer);
   fsIdleTimer = setTimeout(() => {
     playerCard.classList.remove("fs-controls-visible");
+    document.body.style.cursor = "none";
   }, 3000);
 });
 
