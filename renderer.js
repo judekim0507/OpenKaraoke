@@ -279,8 +279,11 @@ let lyricsTopSpacer = null;
 let lyricsBottomSpacer = null;
 
 function updateLyricsSpacers() {
-  if (lyricsTopSpacer) lyricsTopSpacer.style.height = "0px";
-  if (lyricsBottomSpacer) lyricsBottomSpacer.style.height = "0px";
+  // Spacers allow first/last lines to scroll to center
+  const h = lyricsEl.clientHeight;
+  const spacerH = Math.max(0, h * 0.45);
+  if (lyricsTopSpacer) lyricsTopSpacer.style.height = `${spacerH}px`;
+  if (lyricsBottomSpacer) lyricsBottomSpacer.style.height = `${spacerH}px`;
 }
 
 new ResizeObserver(updateLyricsSpacers).observe(lyricsEl);
@@ -378,7 +381,11 @@ function updateLyrics() {
       });
     }
   }
+
+
+
 }
+
 
 // ── Progress ─────────────────────────────────────────────────────────────────
 function updateProgress() {
@@ -527,6 +534,7 @@ async function onTrackChange(data) {
 
 window.nowPlaying.onUpdate((data) => {
   if (!data || !data.title) {
+    console.log("[NowPlaying] No data:", data);
     // Nothing playing
     if (currentTrackKey !== null) {
       currentTrackKey = null;

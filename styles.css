@@ -129,7 +129,23 @@ body {
 .lyrics::-webkit-scrollbar        { width: 4px; }
 .lyrics::-webkit-scrollbar-track  { background: transparent; }
 .lyrics::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.18); border-radius: 99px; }
-.player-card.karaoke-on .lyrics { margin-top: 8px; margin-bottom: 8px; }
+.player-card.karaoke-on .lyrics {
+  margin-top: 8px; margin-bottom: 8px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+}
 .player-card.karaoke-on:hover .lyrics { margin-top: 0; margin-bottom: 0; }
 .lyrics-spacer { flex-shrink: 0; }
 
@@ -161,6 +177,51 @@ body {
 .line-romanized {
   display: block; font-size: 1rem; font-weight: 400; opacity: 0.65;
   margin-top: 2px; line-height: 1.3;
+}
+
+/* ── Interlude dots ──────────────────────────────────────────────────────────── */
+.interlude-dots {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; gap: 8px;
+  z-index: 20;
+  opacity: 0;
+  filter: blur(6px);
+  transition: opacity 0.5s ease, filter 0.5s ease;
+}
+.interlude-dots.visible {
+  opacity: 1;
+  filter: blur(0px);
+}
+.interlude-dots.hidden { display: none; }
+
+.interlude-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transition: background 0.4s ease, transform 0.4s ease;
+}
+.interlude-dot.filled {
+  background: rgba(255,255,255,0.9);
+  transform: scale(1.15);
+}
+
+/* In karaoke mode, position dots above lyrics */
+.player-card.karaoke-on .interlude-dots,
+.player-card.is-fullscreen .interlude-dots {
+  top: auto; bottom: auto;
+  left: 36px; right: auto;
+  transform: none;
+}
+.player-card.karaoke-on .interlude-dots {
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+}
+.player-card.is-fullscreen .interlude-dots {
+  top: auto; left: 52%; bottom: auto;
+  transform: translateY(-20px);
+  position: fixed;
+  top: 40%;
 }
 
 /* ── Controls overlay ───────────────────────────────────────────────────────── */
@@ -433,27 +494,28 @@ kbd {
 .player-card.is-fullscreen .content-area::before {
   content: '';
   position: absolute;
-  top: -10%; right: 5%;
-  width: 40%; height: 50%;
+  top: -15%; right: 0%;
+  width: 45%; height: 55%;
   background: radial-gradient(
-    ellipse at center,
-    var(--art-color-light, rgba(200,100,100,0.2)) 0%,
-    transparent 70%
+    ellipse at 60% 40%,
+    var(--art-color-light, rgba(200,100,100,0.15)) 0%,
+    transparent 65%
   );
-  opacity: 0.3;
+  opacity: 0.25;
   pointer-events: none;
   z-index: 0;
+  filter: blur(40px);
 }
 
 /* ── Album art: floating card, centered left ─────────────────────────────── */
 .player-card.is-fullscreen .art-panel {
   position: absolute;
-  left: 4%; top: 50%;
-  transform: translateY(-50%);
-  width: 38%; height: auto;
+  left: 5%; top: 50%;
+  transform: translateY(calc(-50% - 40px));
+  width: 36%; height: auto;
   aspect-ratio: 1;
-  border-radius: 12px;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+  border-radius: 10px;
+  box-shadow: 0 30px 100px rgba(0,0,0,0.5), 0 8px 30px rgba(0,0,0,0.3);
   overflow: hidden;
   opacity: 1;
   pointer-events: none;
@@ -470,15 +532,16 @@ kbd {
 .player-card.is-fullscreen .controls-overlay {
   inset: auto; /* reset first */
   position: absolute;
-  left: 4%; bottom: 4%;
-  width: 38%;
+  left: 5%;
+  top: calc(50% + 18vw - 40px + 28px);
+  width: 36%;
   background: transparent;
   opacity: 0;
   pointer-events: none;
-  padding: 12px 0 0;
-  gap: 10px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-end;
+  padding: 0;
+  gap: 14px;
+  display: flex; flex-direction: column-reverse;
+  align-items: center; justify-content: flex-start;
   z-index: 10;
   transition: opacity 0.3s ease;
 }
@@ -518,29 +581,46 @@ kbd {
 }
 
 .player-card.is-fullscreen .lyrics {
-  padding: 20vh 8% 20vh 4%;
+  padding: 0 8% 0 4%;
   margin: 0;
   gap: 6px;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 15%,
+    black 85%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 15%,
+    black 85%,
+    transparent 100%
+  );
 }
 .player-card.is-fullscreen .lyrics::-webkit-scrollbar { display: none; }
 
 .player-card.is-fullscreen .lyrics .line {
-  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  font-size: clamp(1.5rem, 2.4vw, 2.2rem);
   font-weight: 700;
-  line-height: 1.3;
-  padding: 8px 0;
-  color: rgba(255,255,255,0.28);
-  transition: color 0.3s ease;
+  line-height: 1.35;
+  padding: 10px 0;
+  color: rgba(255,255,255,0.22);
+  transition: color 0.4s ease, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.4s ease;
 }
 .player-card.is-fullscreen .lyrics .line.is-upcoming {
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.22);
   opacity: 1;
+}
+.player-card.is-fullscreen .lyrics .line.is-past {
+  color: rgba(255,255,255,0.15);
 }
 .player-card.is-fullscreen .lyrics .line.is-active {
   color: #ffffff;
   font-weight: 800;
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 .player-card.is-fullscreen .lyrics .lyrics-message {
   font-size: 1.4rem;
