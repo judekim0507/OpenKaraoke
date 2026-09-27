@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, nativeTheme } = require("electron");
 const { execFile } = require("child_process");
 const path = require("path");
 
@@ -205,13 +205,16 @@ ipcMain.handle("get-window-size", () => mainWindow.getSize());
 
 // ── Main window ──────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Keep the dark vibrancy material even when macOS is in light mode
+  nativeTheme.themeSource = "dark";
   mainWindow = new BrowserWindow({
     width: 280,
     height: 380,
     minWidth: 280,
     minHeight: 380,
     transparent: true,
-    vibrancy: "under-window",
+    vibrancy: "hud",
+    visualEffectState: "active", // stay blurred when the overlay isn't focused
     frame: false,
     hasShadow: true,
     icon: path.join(__dirname, "assets/icon.icns"),

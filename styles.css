@@ -1,6 +1,7 @@
 /* ── Variables ──────────────────────────────────────────────────────────────── */
 :root {
-  --card-bg:   #000000;
+  /* Near-black tint over the native macOS HUD blur: dark but still glassy */
+  --card-bg:   rgba(8, 8, 10, 0.35);
   --text:      #f7f8f8;
   --muted:     rgba(255,255,255,0.5);
   --accent:    #F59E0B;
@@ -51,7 +52,11 @@ body {
 
 /* ── Card ───────────────────────────────────────────────────────────────────── */
 .player-card {
-  background: var(--card-bg); box-shadow: var(--shadow);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0) 40%),
+    var(--card-bg);
+  box-shadow: var(--shadow), inset 0 0 0 0.5px rgba(255,255,255,0.14), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-radius: 16px;
   display: flex; flex-direction: column; overflow: hidden;
   width: 100%; height: 100%; position: relative; padding: 4px;
 }
@@ -235,7 +240,7 @@ body {
 /* ── Controls overlay ───────────────────────────────────────────────────────── */
 .controls-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, rgba(0,0,0,1.00) 89%);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.85) 89%);
   display: flex; flex-direction: column; align-items: center;
   justify-content: flex-end;
   gap: 16px;
