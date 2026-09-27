@@ -721,6 +721,106 @@ document.getElementById("minimizeBtn").addEventListener("click", (e) => {
   window.electronWindow.minimize();
 });
 
+// ── Traffic lights: subtle press-and-drag give ───────────────────────────────
+// A pressed light leans toward the pointer and springs back on release.
+// Deliberately restrained: ~2px of travel and under 1px of stretch.
+const LIGHT_DOT = 12;
+const LIGHT_MAX_STRETCH = 0.8;
+const LIGHT_OFFSET_MAX = 2;
+const LIGHT_OFFSET_SOFTNESS = 60;
+const LIGHT_STRETCH_SOFTNESS = 40;
+const LIGHT_FOLLOW = { stiffness: 420, damping: 34 };
+const LIGHT_RELEASE = { stiffness: 400, damping: 32 };
+const LIGHT_AXES = ["x", "y", "stretchX", "stretchY"];
+const LIGHT_REST = { x: 0, y: 0, stretchX: 0, stretchY: 0 };
+
+function lightPose(dx, dy) {
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.01) return { ...LIGHT_REST };
+  const offset = LIGHT_OFFSET_MAX * Math.tanh(dist / LIGHT_OFFSET_SOFTNESS);
+  const stretch = LIGHT_MAX_STRETCH * Math.tanh(dist / LIGHT_STRETCH_SOFTNESS);
+  const px = Math.sqrt(Math.abs(dx));
+  const py = Math.sqrt(Math.abs(dy));
+  const wx = px / (px + py);
+  const wy = py / (px + py);
+  const minStretch = -(LIGHT_DOT * 0.1);
+  return {
+    x: (dx / dist) * offset,
+    y: (dy / dist) * offset,
+    // Preserve area: stretching along one axis squeezes the other
+    stretchX: Math.max(minStretch, stretch * wx - stretch * wy),
+    stretchY: Math.max(minStretch, stretch * wy - stretch * wx),
+  };
+}
+
+function mountTrafficLight(hit) {
+  const light = hit.querySelector(".light");
+  let mode = "idle"; // idle | drag | release
+  let origin = { x: 0, y: 0 };
+  let current = { ...LIGHT_REST };
+  let velocity = { ...LIGHT_REST };
+  let target = { ...LIGHT_REST };
+  let pointerId = null;
+  let raf = 0;
+
+  const write = () => {
+    light.style.setProperty("--x", `${current.x}px`);
+    light.style.setProperty("--y", `${current.y}px`);
+    light.style.setProperty("--stretch-x", `${current.stretchX}px`);
+    light.style.setProperty("--stretch-y", `${current.stretchY}px`);
+  };
+
+  const animate = () => {
+    if (raf) return;
+    let prev = performance.now();
+    const tick = (now) => {
+      const dt = Math.min((now - prev) / 1000, 0.032);
+      prev = now;
+      const goal = mode === "release" ? LIGHT_REST : target;
+      const { stiffness, damping } = mode === "release" ? LIGHT_RELEASE : LIGHT_FOLLOW;
+      for (const axis of LIGHT_AXES) {
+        velocity[axis] += (-stiffness * (current[axis] - goal[axis]) - damping * velocity[axis]) * dt;
+        current[axis] += velocity[axis] * dt;
+      }
+      const err = Math.hypot(...LIGHT_AXES.map((a) => current[a] - goal[a]));
+      const speed = Math.hypot(...LIGHT_AXES.map((a) => velocity[a]));
+      const settled = err < 0.02 && speed < 0.2;
+      if (mode === "release" && settled) {
+        current = { ...LIGHT_REST };
+        velocity = { ...LIGHT_REST };
+        mode = "idle";
+      }
+      write();
+      raf = mode === "drag" || !settled ? requestAnimationFrame(tick) : 0;
+    };
+    raf = requestAnimationFrame(tick);
+  };
+
+  hit.addEventListener("mousedown", (e) => e.stopPropagation()); // don't drag the window
+  hit.addEventListener("pointerdown", (e) => {
+    pointerId = e.pointerId;
+    mode = "drag";
+    origin = { x: e.clientX, y: e.clientY };
+    target = { ...LIGHT_REST };
+    animate();
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (mode !== "drag" || e.pointerId !== pointerId) return;
+    target = lightPose(e.clientX - origin.x, e.clientY - origin.y);
+    animate();
+  });
+  const release = (e) => {
+    if (mode !== "drag" || e.pointerId !== pointerId) return;
+    pointerId = null;
+    mode = "release";
+    animate();
+  };
+  window.addEventListener("pointerup", release);
+  window.addEventListener("pointercancel", release);
+}
+
+document.querySelectorAll(".light-hit").forEach(mountTrafficLight);
+
 // ── Fullscreen mode ──────────────────────────────────────────────────────────
 const fsThumb = document.getElementById("fsThumb");
 const fsBarFill = document.getElementById("fsBarFill");

@@ -23,9 +23,26 @@
 
           <!-- Top bar -->
           <div class="player-top" id="dragHandle">
-            <div class="dot-group">
-              <span class="dot" id="minimizeBtn"></span>
-              <span class="dot dot-green" id="fullscreenBtn"></span>
+            <div class="traffic-lights">
+              <div class="light-hit" id="minimizeBtn" role="button" aria-label="Minimize">
+                <div class="light light--minimize">
+                  <div class="light__fill"></div>
+                  <div class="light__rim" aria-hidden="true"></div>
+                  <svg class="light__icon" width="7.5" height="2" viewBox="0 0 8.27153 2" fill="none" aria-hidden="true">
+                    <path d="M0.97522 2H7.29683C7.8157 2 8.27153 1.54423 8.27153 1.00295C8.27153 0.461672 7.8157 0.00590134 7.29683 0.00590134H0.97522C0.483084 0.00590134 0 0.461672 0 1.00295C0 1.54423 0.483084 2 0.97522 2Z" fill="black"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="light-hit" id="fullscreenBtn" role="button" aria-label="Full screen">
+                <div class="light light--maximize">
+                  <div class="light__fill"></div>
+                  <div class="light__rim" aria-hidden="true"></div>
+                  <svg class="light__icon" width="5.5" height="5.5" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <path d="M5 6H1.48284C1.30466 6 1.21543 5.78457 1.34142 5.65858L5.65858 1.34142C5.78457 1.21543 6 1.30466 6 1.48284V5C6 5.55228 5.55228 6 5 6Z" fill="black"/>
+                    <path d="M1 0H4.51716C4.69534 0 4.78457 0.215428 4.65858 0.341421L0.341421 4.65858C0.215428 4.78457 0 4.69534 0 4.51716V1C0 0.447715 0.447715 0 1 0Z" fill="black"/>
+                  </svg>
+                </div>
+              </div>
             </div>
             <svg class="grip" width="16" height="7" viewBox="0 0 27 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <rect x="0.300781" width="3.6" height="3.6" rx="1" fill="#BABABA"/>

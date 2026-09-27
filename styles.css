@@ -82,9 +82,89 @@ body {
 .player-top:active { cursor: grabbing; }
 .player-card:hover .player-top { height: 28px; opacity: 1; pointer-events: auto; }
 
-.dot-group { display: flex; gap: 6px; align-items: center; flex: 1; }
-.dot { width: 12px; height: 12px; border-radius: 50%; background: #FFBD2E; flex-shrink: 0; cursor: pointer; }
-.dot-green { background: #28C840; }
+/* ── Traffic lights (macOS 26 style) ───────────────────────────────────────── */
+@property --light-fill {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f0ab00;
+}
+
+.traffic-lights {
+  display: flex; align-items: center; gap: 7px; flex: 1;
+  cursor: default;
+}
+
+.light-hit {
+  position: relative; display: flex; flex-shrink: 0;
+  width: 12px; height: 12px;
+  align-items: center; justify-content: center;
+  touch-action: none; cursor: default;
+}
+
+.light {
+  --dot: 12px;
+  --box: calc(var(--dot) + 4px);
+  --x: 0px; --y: 0px;
+  --stretch-x: 0px; --stretch-y: 0px;
+  --w: calc(var(--dot) + var(--stretch-x));
+  --h: calc(var(--dot) + var(--stretch-y));
+  --light-fill: var(--base);
+  position: relative; flex-shrink: 0;
+  width: var(--box); height: var(--box);
+  translate: var(--x) var(--y);
+  scale: 1;
+  filter: drop-shadow(0 0.5px 1.2px rgba(0, 0, 0, 0.3));
+  /* Gentle, near-critically damped spring */
+  transition: scale 380ms linear(0, 0.35 10%, 0.7 20%, 0.92 32%, 1.02 45%, 1.025 58%, 1.008 75%, 1);
+}
+.light--minimize { --base: #f0ab00; }
+.light--maximize { --base: #00c400; }
+
+.light-hit:hover .light {
+  scale: 1.05;
+  animation: light-warm 1.175s ease forwards;
+}
+.light-hit:active .light { scale: 0.96; }
+
+@keyframes light-warm {
+  0%, 10.6% { --light-fill: var(--base); }
+  36.2%, 74.5% { --light-fill: oklch(from var(--base) calc(l + 0.06) calc(c * 1.08) h); }
+  100% { --light-fill: var(--base); }
+}
+
+.light__fill,
+.light__rim {
+  position: absolute; left: 50%; top: 50%;
+  width: var(--w); height: var(--h);
+  translate: -50% -50%;
+  border-radius: 50%;
+}
+.light__fill {
+  background:
+    radial-gradient(100% 64.29% at 50% 100%, rgba(255,255,255,0) 64.9%, rgba(255,255,255,0.1) 100%),
+    radial-gradient(33.53% 50% at 50% 78.57%, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%),
+    var(--light-fill);
+}
+.light--minimize .light__fill { background: var(--light-fill); }
+
+.light__rim {
+  pointer-events: none;
+  --rim-a: 0.3; --rim-b: 0.35;
+  box-shadow:
+    0 -3.1px 0.45px -2.6px rgb(255 255 255 / var(--rim-a)) inset,
+    0 -3.2px 0.5px -2.4px rgb(255 255 255 / var(--rim-b)) inset,
+    0 3.1px 0.45px -2.6px rgb(255 255 255 / var(--rim-a)) inset,
+    0 3.2px 0.5px -2.4px rgb(255 255 255 / var(--rim-b)) inset;
+}
+.light--minimize .light__rim { --rim-a: 0.45; --rim-b: 0.5; }
+.light--maximize .light__rim { --rim-a: 0.55; --rim-b: 0.6; }
+
+.light__icon {
+  position: absolute; inset: 0; margin: auto;
+  opacity: 0; pointer-events: none;
+  transition: opacity 220ms ease;
+}
+.traffic-lights:hover .light__icon { opacity: 0.6; }
 .grip { flex-shrink: 0; }
 .opacity-btn-wrap { flex: 1; display: flex; justify-content: flex-end; }
 .opacity-btn {
