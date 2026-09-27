@@ -10,6 +10,7 @@ const karaokeToggle = document.getElementById("karaokeToggle");
 const contentArea = document.getElementById("contentArea");
 const playerCard = document.getElementById("playerCard");
 const lyricsEl = document.getElementById("lyrics");
+const lyricsMessageEl = document.getElementById("lyricsMessage");
 const stage = document.getElementById("stage");
 const dragHandle = document.getElementById("dragHandle");
 const sourceEl = document.getElementById("sourceApp");
@@ -111,281 +112,157 @@ function formatTime(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-// ── Lyrics ───────────────────────────────────────────────────────────────────
-let lyrics = [];
-let lyricsMode = "none";
+// ── Lyrics (rendered by <am-lyrics>) ─────────────────────────────────────────
+let amLyricsEl = null; // current <am-lyrics> element, one per track
+let lyricsRequestId = 0;
 let currentTrackKey = null;
+let lyricsAnimationsPaused = false;
+const pausedLyricAnimations = new Set();
 
-// ── Romanization ─────────────────────────────────────────────────────────────
-function hasNonLatin(text) {
-  return /[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/.test(
-    text
-  );
+const LYRICS_FONT = getComputedStyle(document.documentElement)
+  .getPropertyValue("--font-sf")
+  .trim();
+
+// Adjustments applied inside am-lyrics' shadow root
+const LYRICS_SHADOW_CSS = `
+  .lyrics-header {
+    display: var(--ok-lyrics-header-display, flex);
+    justify-content: flex-end; opacity: 0; transition: opacity 0.25s ease;
+  }
+  :host(:hover) .lyrics-header { opacity: 1; }
+  .lyrics-header .download-controls { display: none; }
+  .lyrics-footer .version-info { display: none; }
+`;
+
+// am-lyrics' styles are constructed stylesheets, which Chromium drops when the
+// element moves to another document (the PiP window) and never re-applies.
+// Keep the originals and re-adopt them, rebuilt for the PiP document if needed.
+let lyricsSheets = [];
+
+function restoreLyricsStyles() {
+  const root = amLyricsEl?.shadowRoot;
+  if (!root || !lyricsSheets.length) return;
+  const doc = amLyricsEl.ownerDocument;
+  if (doc === document) {
+    root.adoptedStyleSheets = lyricsSheets;
+    return;
+  }
+  const View = doc.defaultView;
+  root.adoptedStyleSheets = lyricsSheets.map((sheet) => {
+    const copy = new View.CSSStyleSheet();
+    copy.replaceSync([...sheet.cssRules].map((r) => r.cssText).join("\n"));
+    return copy;
+  });
 }
 
-function isJapanese(text) {
-  return /[\u3040-\u30FF]/.test(text);
+function showLyricsMessage(message) {
+  lyricsRequestId++;
+  removeLyricsElement();
+  lyricsEl.dataset.state = "message";
+  lyricsMessageEl.textContent = message;
 }
 
-function isKorean(text) {
-  return /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text);
-}
-
-function isChinese(text) {
-  return /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
-}
-
-function romanizeText(text) {
-  try {
-    if (isKorean(text) && window.hangulRomanization) {
-      return window.hangulRomanization.convert(text);
-    }
-    if (isJapanese(text) && window.wanakana) {
-      return window.wanakana.toRomaji(text);
-    }
-    if (isChinese(text) && window.pinyinPro) {
-      return window.pinyinPro.convert(text);
-    }
-    return window.transliteration?.transliterate(text) ?? null;
-  } catch {
-    return null;
+function removeLyricsElement() {
+  pausedLyricAnimations.clear();
+  lyricsAnimationsPaused = false;
+  if (amLyricsEl) {
+    amLyricsEl.remove();
+    amLyricsEl = null;
   }
 }
 
-function parseLrc(lrc) {
-  const lines = [];
-  for (const raw of lrc.split("\n")) {
-    const match = raw.match(/^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
-    if (!match) continue;
-    const mins = parseInt(match[1], 10);
-    const secs = parseInt(match[2], 10);
-    const ms = parseInt(match[3].padEnd(3, "0"), 10);
-    const text = match[4].trim();
-    if (text) lines.push({ start: mins * 60 + secs + ms / 1000, text });
-  }
-  return lines;
+function mountLyrics(result) {
+  removeLyricsElement();
+  const el = document.createElement("am-lyrics");
+  // Set ttml before connecting so am-lyrics never runs its own provider search
+  el.ttml = result.ttml;
+  el.highlightColor = "#ffffff";
+  el.fontFamily = LYRICS_FONT;
+  el.autoScroll = true;
+  el.interpolate = true;
+  el.currentTime = getSimulatedPosition();
+  // am-lyrics labels TTML passed in directly as "Local"; pin the real source
+  Object.defineProperty(el, "lyricsSource", { get: () => result.source, set() {} });
+  el.addEventListener("line-click", (e) => {
+    const posMs = e.detail.timestamp;
+    window.nowPlaying.seek(posMs / 1000);
+    syncPosition(posMs, isPlaying);
+    seekLockUntil = Date.now() + 1500;
+  });
+
+  lyricsEl.appendChild(el);
+  amLyricsEl = el;
+  lyricsEl.dataset.state = "lyrics";
+  lyricsEl.dataset.sync = result.sync;
+
+  const style = document.createElement("style");
+  style.textContent = LYRICS_SHADOW_CSS;
+  el.shadowRoot?.prepend(style);
+  lyricsSheets = el.shadowRoot ? [...el.shadowRoot.adoptedStyleSheets] : [];
+  restoreLyricsStyles();
+
+  if (result.romanized) el.showRomanization = true;
 }
 
-async function lrcLibSearch(artist, title) {
-  try {
-    const params = new URLSearchParams({ q: `${artist} ${title}`.trim() });
-    console.log("[Lyrics] LrcLib search:", params.toString());
-    const res = await fetch(`https://lrclib.net/api/search?${params}`);
-    if (!res.ok) return null;
-    const results = await res.json();
-    console.log("[Lyrics] LrcLib search:", results.length, "results,", results.filter((r) => r.syncedLyrics).length, "synced");
-    const synced = results.find((r) => r.syncedLyrics);
-    if (synced) return { lines: parseLrc(synced.syncedLyrics), synced: true };
-    const plain = results.find((r) => r.plainLyrics);
-    if (plain) {
-      return { lines: plain.plainLyrics.split("\n").map((t) => ({ text: t, start: null })), synced: false };
-    }
-  } catch (e) {
-    console.warn("[Lyrics] LrcLib search error:", e);
-  }
-  return null;
+async function loadLyrics(data) {
+  const requestId = ++lyricsRequestId;
+  removeLyricsElement();
+  lyricsEl.dataset.state = "message";
+  lyricsMessageEl.textContent = "Loading lyrics\u2026";
+
+  const result = await window.lyricsSources.findLyrics({
+    title: data.title,
+    artist: data.artist || "",
+    album: data.album || "",
+    duration: data.duration || 0,
+  });
+  if (requestId !== lyricsRequestId) return;
+
+  if (result) mountLyrics(result);
+  else showLyricsMessage("No lyrics found for this track");
 }
 
-async function fetchLyrics(track) {
-  const artist = track.artists[0]?.name || "";
-  const title = track.name;
-  const album = track.album?.name || "";
-  const duration = Math.round(track.duration_ms / 1000);
+function lyricsVisible() {
+  return contentArea.classList.contains("karaoke-on");
+}
 
-  // 1. Try lrclib exact match (fastest)
-  try {
-    const params = new URLSearchParams({
-      artist_name: artist,
-      track_name: title,
-      album_name: album,
-      duration,
-    });
-    console.log("[Lyrics] LrcLib get:", `${params}`);
-    const res = await fetch(`https://lrclib.net/api/get?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.syncedLyrics)
-        return { lines: parseLrc(data.syncedLyrics), synced: true };
-      console.log("[Lyrics] LrcLib get: no synced lyrics in response");
-    } else {
-      console.log("[Lyrics] LrcLib get:", res.status);
-    }
-  } catch (e) {
-    console.warn("[Lyrics] LrcLib get error:", e);
-  }
-
-  // 2. Try lrclib search with artist + title
-  const lrcSearchResult = await lrcLibSearch(artist, title);
-  if (lrcSearchResult) return lrcSearchResult;
-
-  // 3. Try lrclib with cleaned/simplified title (strip parentheses, featured artists, etc.)
-  const cleanTitle = title
-    .replace(/\s*\(.*?\)\s*/g, " ")
-    .replace(/\s*\[.*?\]\s*/g, " ")
-    .replace(/\s*[-–—]\s*.*(feat|ft|remix|mix|version|edit).*$/i, "")
-    .trim();
-  if (cleanTitle !== title) {
-    console.log("[Lyrics] Retrying with cleaned title:", cleanTitle);
-    const cleanResult = await lrcLibSearch(artist, cleanTitle);
-    if (cleanResult) return cleanResult;
-  }
-
-  // 4. Try lrclib with just the title (no artist — handles wrong artist from MediaRemote)
-  if (artist) {
-    const noArtistResult = await lrcLibSearch("", title);
-    if (noArtistResult) return noArtistResult;
-  }
-
-  // 5. Fallback: Genius
-  try {
-    console.log("[Lyrics] Trying Genius for:", artist, "-", title);
-    const text = await window.genius.fetchLyrics(artist, title);
-    if (text) {
-      const lines = text.split("\n").map((t) => ({ text: t, start: null }));
-      return { lines, synced: false };
-    }
-    // Try Genius with clean title too
-    if (cleanTitle !== title) {
-      const text2 = await window.genius.fetchLyrics(artist, cleanTitle);
-      if (text2) {
-        const lines = text2.split("\n").map((t) => ({ text: t, start: null }));
-        return { lines, synced: false };
+// am-lyrics drives word wipes with CSS/Web Animations that keep running on
+// their own, so freeze them while playback is paused or the panel is hidden.
+function setLyricAnimationsPaused(paused) {
+  const root = amLyricsEl?.shadowRoot;
+  if (!root) return;
+  if (paused) {
+    for (const anim of root.getAnimations()) {
+      if (anim.playState === "running") {
+        anim.pause();
+        pausedLyricAnimations.add(anim);
       }
     }
-    console.log("[Lyrics] Genius returned nothing");
-  } catch (e) {
-    console.warn("[Lyrics] Genius error:", e);
-  }
-
-  return null;
-}
-
-async function preRomanizeJapanese(lines) {
-  if (!window.kuroshiro) return;
-  const japanese = lines.filter((l) => l.text && isJapanese(l.text));
-  if (!japanese.length) return;
-  await Promise.all(
-    japanese.map(async (line) => {
-      try {
-        const roma = await window.kuroshiro.convert(line.text);
-        if (roma && roma !== line.text) line.romanized = roma;
-      } catch {}
-    })
-  );
-}
-
-let activeLineIndex = -1;
-let lyricsTopSpacer = null;
-let lyricsBottomSpacer = null;
-
-function updateLyricsSpacers() {
-  // Spacers allow first/last lines to scroll to center
-  const h = lyricsEl.clientHeight;
-  const spacerH = Math.max(0, h * 0.45);
-  if (lyricsTopSpacer) lyricsTopSpacer.style.height = `${spacerH}px`;
-  if (lyricsBottomSpacer) lyricsBottomSpacer.style.height = `${spacerH}px`;
-}
-
-new ResizeObserver(updateLyricsSpacers).observe(lyricsEl);
-
-function renderLyrics(message) {
-  lyricsEl.innerHTML = "";
-  activeLineIndex = -1;
-
-  lyricsTopSpacer = document.createElement("div");
-  lyricsTopSpacer.className = "lyrics-spacer";
-  lyricsEl.appendChild(lyricsTopSpacer);
-
-  if (message || !lyrics.length) {
-    const msg = document.createElement("div");
-    msg.className = "line is-upcoming lyrics-message";
-    msg.textContent = message || "No lyrics found";
-    lyricsEl.appendChild(msg);
-  } else {
-    if (lyricsMode === "static") {
-      const notice = document.createElement("div");
-      notice.className = "line is-upcoming lyrics-sync-notice";
-      notice.textContent = "Timestamp sync not available";
-      lyricsEl.appendChild(notice);
+  } else if (lyricsAnimationsPaused) {
+    for (const anim of pausedLyricAnimations) {
+      if (anim.playState === "paused") anim.play();
     }
-
-    lyrics.forEach((line, index) => {
-      const lineEl = document.createElement("div");
-      lineEl.className = "line is-upcoming";
-      lineEl.dataset.index = index;
-      if (lyricsMode === "synced") lineEl.dataset.start = line.start;
-      if (hasNonLatin(line.text)) {
-        const roma = line.romanized ?? romanizeText(line.text);
-        if (roma && roma !== line.text) {
-          lineEl.appendChild(document.createTextNode(line.text));
-          const romaSpan = document.createElement("span");
-          romaSpan.className = "line-romanized";
-          romaSpan.textContent = roma;
-          lineEl.appendChild(romaSpan);
-        } else {
-          lineEl.textContent = line.text;
-        }
-      } else {
-        lineEl.textContent = line.text;
-      }
-      if (lyricsMode === "synced") {
-        lineEl.style.cursor = "pointer";
-        lineEl.addEventListener("click", () => {
-          const posSec = line.start;
-          window.nowPlaying.seek(posSec);
-          syncPosition(posSec * 1000, isPlaying);
-        });
-      }
-      lyricsEl.appendChild(lineEl);
-    });
+    pausedLyricAnimations.clear();
   }
-
-  lyricsBottomSpacer = document.createElement("div");
-  lyricsBottomSpacer.className = "lyrics-spacer";
-  lyricsEl.appendChild(lyricsBottomSpacer);
-
-  updateLyricsSpacers();
-  lyricsEl.scrollTo({ top: 0, behavior: "instant" });
+  lyricsAnimationsPaused = paused;
 }
 
 function updateLyrics() {
-  if (lyricsMode !== "synced") return;
-  const t = getSimulatedPosition() / 1000;
-  const dur = simulatedDuration / 1000 || 1;
-  const lines = Array.from(lyricsEl.querySelectorAll(".line"));
-  let newActiveIndex = -1;
-
-  lines.forEach((lineEl, index) => {
-    const start = Number(lineEl.dataset.start);
-    const end = lyrics[index + 1] ? lyrics[index + 1].start : dur;
-
-    if (t >= start && t < end) {
-      lineEl.classList.remove("is-past", "is-upcoming");
-      lineEl.classList.add("is-active");
-      newActiveIndex = index;
-    } else if (t >= end) {
-      lineEl.classList.remove("is-active", "is-upcoming");
-      lineEl.classList.add("is-past");
-    } else {
-      lineEl.classList.remove("is-active", "is-past");
-      lineEl.classList.add("is-upcoming");
+  if (!amLyricsEl) return;
+  const active = isPlaying && lyricsVisible();
+  if (!active) {
+    if (!lyricsAnimationsPaused) setLyricAnimationsPaused(true);
+    // Keep position in sync for seeks while paused, then re-freeze
+    const pos = getSimulatedPosition();
+    if (lyricsVisible() && amLyricsEl.currentTime !== pos) {
+      amLyricsEl.currentTime = pos;
+      setLyricAnimationsPaused(true);
     }
-  });
-
-  if (newActiveIndex !== activeLineIndex) {
-    activeLineIndex = newActiveIndex;
-    if (newActiveIndex >= 0) {
-      lines[newActiveIndex].scrollIntoView({
-        block: "center",
-        behavior: "smooth",
-      });
-    }
+    return;
   }
-
-
-
+  if (lyricsAnimationsPaused) setLyricAnimationsPaused(false);
+  amLyricsEl.currentTime = getSimulatedPosition();
 }
-
 
 // ── Progress ─────────────────────────────────────────────────────────────────
 function updateProgress() {
@@ -444,8 +321,6 @@ function extractAndApplyColor(imgEl) {
       samples.push({ h, s, l, chroma: s * (1 - Math.abs(2 * l - 1)) });
     }
 
-    const avgImgL = samples.reduce((a, p) => a + p.l, 0) / samples.length;
-
     samples.sort((a, b) => b.chroma - a.chroma);
     const top = samples.slice(0, Math.max(1, Math.floor(samples.length * 0.2)));
 
@@ -467,15 +342,10 @@ function extractAndApplyColor(imgEl) {
     const light = `hsl(${h},${sP}%,55%)`;
     const dark = `hsl(${h},${Math.round(s * 90)}%,18%)`;
     const mid = `hsl(${h},${Math.round(s * 95)}%,30%)`;
-    const upcoming = `hsl(${h},${sP}%,62%)`;
-
-    const upcomingOpacity = avgImgL > 0.6 ? 0.7 : 1;
 
     contentArea.style.setProperty("--art-color-light", light);
     contentArea.style.setProperty("--art-color-dark", dark);
     contentArea.style.setProperty("--art-color-mid", mid);
-    contentArea.style.setProperty("--art-color-upcoming", upcoming);
-    contentArea.style.setProperty("--upcoming-lyric-opacity", upcomingOpacity);
   } catch (e) {
     /* cross-origin guard */
   }
@@ -507,29 +377,14 @@ async function onTrackChange(data) {
     }
   }
 
+  loadLyrics(data);
+
   // Fetch album art via iTunes Search API
   if (data.artist && data.title) {
+    const trackKey = currentTrackKey;
     const artUrl = await window.albumArt.fetch(data.artist, data.title);
-    if (artUrl) setArtUrl(artUrl);
+    if (artUrl && trackKey === currentTrackKey) setArtUrl(artUrl);
   }
-
-  // Fetch lyrics
-  lyrics = [];
-  lyricsMode = "none";
-  renderLyrics("Loading lyrics\u2026");
-
-  const track = {
-    name: data.title,
-    artists: [{ name: data.artist || "" }],
-    album: { name: data.album || "" },
-    duration_ms: (data.duration || 0) * 1000,
-  };
-
-  const fetched = await fetchLyrics(track);
-  if (fetched) await preRomanizeJapanese(fetched.lines);
-  lyrics = fetched?.lines || [];
-  lyricsMode = fetched ? (fetched.synced ? "synced" : "static") : "none";
-  renderLyrics(fetched ? null : "No lyrics found for this track");
 }
 
 window.nowPlaying.onUpdate((data) => {
@@ -545,9 +400,7 @@ window.nowPlaying.onUpdate((data) => {
       artImg.style.display = "none";
       syncPosition(0, false);
       simulatedDuration = 0;
-      lyrics = [];
-      lyricsMode = "none";
-      renderLyrics("Play a song in any music app");
+      showLyricsMessage("Play a song in any music app");
     }
     return;
   }
@@ -717,11 +570,6 @@ function setKaraoke(on) {
   contentArea.classList.toggle("karaoke-on", on);
   playerCard.classList.toggle("karaoke-on", on);
   karaokeToggle.setAttribute("aria-expanded", on.toString());
-  if (on) {
-    activeLineIndex = -1;
-    updateLyricsSpacers();
-    lyricsEl.scrollTop = 0;
-  }
 }
 
 karaokeToggle.addEventListener("click", () =>
@@ -847,8 +695,10 @@ async function openPiP() {
       "margin:0;padding:12px;background:#000;display:flex;" +
       "align-items:center;justify-content:flex-end;min-height:100vh;box-sizing:border-box;";
     pipWindow.document.body.appendChild(stage);
+    restoreLyricsStyles();
     pipWindow.addEventListener("pagehide", () => {
       appEl.appendChild(stage);
+      restoreLyricsStyles();
     });
   } catch (e) {
     console.warn("PiP unavailable:", e);
@@ -1097,5 +947,5 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-renderLyrics("Play a song in any music app");
+showLyricsMessage("Play a song in any music app");
 updateProgress();

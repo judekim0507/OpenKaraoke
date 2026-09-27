@@ -117,116 +117,40 @@ body {
 .lyrics-panel {
   position: absolute; inset: 0;
   background: var(--art-color-mid, #581C87);
-  display: flex; flex-direction: column; padding: 0 0 0 36px;
+  display: flex; flex-direction: column; padding: 0 12px;
   overflow: hidden; opacity: 0; pointer-events: none;
   transition: opacity 0.4s ease;
 }
 .content-area.karaoke-on .lyrics-panel { opacity: 1; pointer-events: auto; }
 
 .lyrics {
-  display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1;
-  padding-right: 36px; margin-right: 4px;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent;
-  transition: padding-top 0.35s ease;
+  position: relative; flex: 1; min-height: 0;
+  --ok-lyrics-header-display: none;
 }
-.player-card.karaoke-on:hover .lyrics { padding-top: 36px; }
-.lyrics::-webkit-scrollbar        { width: 4px; }
-.lyrics::-webkit-scrollbar-track  { background: transparent; }
-.lyrics::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.18); border-radius: 99px; }
 .player-card.karaoke-on .lyrics {
-  margin-top: 8px; margin-bottom: 8px;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 12%,
-    black 88%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 12%,
-    black 88%,
-    transparent 100%
-  );
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%);
 }
-.player-card.karaoke-on:hover .lyrics { margin-top: 0; margin-bottom: 0; }
-.lyrics-spacer { flex-shrink: 0; }
+/* am-lyrics custom properties must sit on the element itself to beat :host */
+.lyrics am-lyrics {
+  position: absolute; inset: 0;
+  font-family: var(--font-sf);
+  --am-lyrics-highlight-color: #ffffff;
+  --am-lyrics-compact-font-size: 22px;
+  --am-lyrics-compact-line-spacing: 14px;
+  --am-lyrics-compact-selected-position: 22%;
+  --lyplus-gap-dot-size: 0.5em;
+  --lyplus-gap-dot-margin: 0.1em;
+}
+.lyrics[data-state="message"] am-lyrics { display: none; }
 
-.line {
-  font-size: 1.3rem; font-weight: 600; line-height: 1.35; padding: 5px 0;
-  color: rgba(255,255,255,0.40);
-  transform: scale(1); transform-origin: left center;
-  transition: color 0.3s ease, opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+.lyrics-message {
+  position: absolute; left: 14px; right: 14px; top: 50%; transform: translateY(-50%);
+  font-size: 1rem; font-weight: 600; letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.55); cursor: default;
+  display: none;
 }
-.line.is-upcoming {
-  color: var(--art-color-upcoming, var(--orange));
-  opacity: var(--upcoming-lyric-opacity, 1);
-}
-.line.is-active {
-  color: #ffffff; font-weight: 700;
-  transform: scale(1.08); transform-origin: left center;
-}
-
-.lyrics-message { cursor: default; opacity: 0.5; font-weight: 400; font-size: 1rem; color: #fff; }
-.lyrics-sync-notice {
-  cursor: default; font-size: 0.75rem; font-weight: 500; opacity: 0.45;
-  color: #fff; letter-spacing: 0.03em; margin-bottom: 8px;
-}
-.player-card.karaoke-on .lyrics-sync-notice,
-.player-card.karaoke-on .lyrics-message { margin-top: 10px; }
-.player-card.karaoke-on:hover .lyrics-sync-notice,
-.player-card.karaoke-on:hover .lyrics-message { margin-top: 0; }
-
-.line-romanized {
-  display: block; font-size: 1rem; font-weight: 400; opacity: 0.65;
-  margin-top: 2px; line-height: 1.3;
-}
-
-/* ── Interlude dots ──────────────────────────────────────────────────────────── */
-.interlude-dots {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex; gap: 8px;
-  z-index: 20;
-  opacity: 0;
-  filter: blur(6px);
-  transition: opacity 0.5s ease, filter 0.5s ease;
-}
-.interlude-dots.visible {
-  opacity: 1;
-  filter: blur(0px);
-}
-.interlude-dots.hidden { display: none; }
-
-.interlude-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  transition: background 0.4s ease, transform 0.4s ease;
-}
-.interlude-dot.filled {
-  background: rgba(255,255,255,0.9);
-  transform: scale(1.15);
-}
-
-/* In karaoke mode, position dots above lyrics */
-.player-card.karaoke-on .interlude-dots,
-.player-card.is-fullscreen .interlude-dots {
-  top: auto; bottom: auto;
-  left: 36px; right: auto;
-  transform: none;
-}
-.player-card.karaoke-on .interlude-dots {
-  top: 50%; left: 50%; transform: translate(-50%, -50%);
-}
-.player-card.is-fullscreen .interlude-dots {
-  top: auto; left: 52%; bottom: auto;
-  transform: translateY(-20px);
-  position: fixed;
-  top: 40%;
-}
+.lyrics[data-state="message"] .lyrics-message { display: block; }
 
 /* ── Controls overlay ───────────────────────────────────────────────────────── */
 .controls-overlay {
@@ -608,56 +532,19 @@ kbd {
 }
 
 .player-card.is-fullscreen .lyrics {
-  padding: 0 8% 0 4%;
+  flex: 1;
+  padding: 0 6% 0 2%;
   margin: 0;
-  gap: 6px;
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 15%,
-    black 85%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 15%,
-    black 85%,
-    transparent 100%
-  );
+  --ok-lyrics-header-display: flex;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
 }
-.player-card.is-fullscreen .lyrics::-webkit-scrollbar { display: none; }
-
-.player-card.is-fullscreen .lyrics .line {
-  font-size: clamp(1.5rem, 2.4vw, 2.2rem);
-  font-weight: 700;
-  line-height: 1.35;
-  padding: 10px 0;
-  color: rgba(255,255,255,0.22);
-  transition: color 0.4s ease, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.4s ease;
+.player-card.is-fullscreen .lyrics am-lyrics {
+  --lyrics-scroll-padding-top: 30%;
+  --am-lyrics-wide-selected-position: 30%;
 }
-.player-card.is-fullscreen .lyrics .line.is-upcoming {
-  color: rgba(255,255,255,0.22);
-  opacity: 1;
-}
-.player-card.is-fullscreen .lyrics .line.is-past {
-  color: rgba(255,255,255,0.15);
-}
-.player-card.is-fullscreen .lyrics .line.is-active {
-  color: #ffffff;
-  font-weight: 800;
-  transform: scale(1.1);
-}
-.player-card.is-fullscreen .lyrics .lyrics-message {
-  font-size: 1.4rem;
-}
-.player-card.is-fullscreen .lyrics .lyrics-sync-notice {
-  font-size: 0.9rem;
-}
-.player-card.is-fullscreen .lyrics .line-romanized {
-  font-size: clamp(1rem, 1.6vw, 1.3rem);
-  font-style: normal;
+.player-card.is-fullscreen .lyrics-message {
+  left: 32px; font-size: 1.6rem; font-weight: 700;
 }
 
 /* ── Footer: hidden in fullscreen (controls are under art) ───────────────── */

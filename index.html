@@ -66,7 +66,9 @@
                 </svg>
                 Exit Karaoke
               </button>
-              <div class="lyrics" id="lyrics"></div>
+              <div class="lyrics" id="lyrics" data-state="message">
+                <div class="lyrics-message" id="lyricsMessage"></div>
+              </div>
             </div>
 
             <!-- Controls overlay -->
@@ -212,6 +214,8 @@
 
     <script src="https://unpkg.com/transliteration/dist/browser/bundle.umd.min.js"></script>
     <script src="https://unpkg.com/wanakana@5.3.1/wanakana.min.js"></script>
+    <script type="module" src="node_modules/@uimaxbai/am-lyrics/dist/src/am-lyrics.js"></script>
+    <script src="lyrics.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>
