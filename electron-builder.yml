@@ -14,9 +14,6 @@ mac:
         - arm64
   extendInfo:
     CFBundleIconName: OpenKaraoke
-  extraResources:
-    - from: assets/Assets.car
-      to: ../Assets.car
 
 dmg:
   title: OpenKaraoke
